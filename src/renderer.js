@@ -50,14 +50,26 @@ function setWebviewsInteractive(interactive) {
   document.querySelectorAll('webview').forEach((webview) => {
     if (interactive) {
       webview.style.pointerEvents = '';
+      webview.style.visibility = '';
       webview.removeAttribute('tabindex');
+      webview.removeAttribute('inert');
       return;
     }
 
+    // Electron webview can keep keyboard focus even when a normal modal is above it.
+    // Hide + blur it while any modal is open so inputs inside the modal can receive typing
+    // after account error/delete flows without requiring an app refresh.
     webview.style.pointerEvents = 'none';
+    webview.style.visibility = 'hidden';
     webview.setAttribute('tabindex', '-1');
+    webview.setAttribute('inert', '');
     try { webview.blur(); } catch (e) {}
   });
+
+  if (!interactive) {
+    try { window.focus(); } catch (e) {}
+    try { document.body.focus(); } catch (e) {}
+  }
 }
 
 function syncModalInteractionState() {
@@ -69,10 +81,19 @@ function forceInputFocus(modal, shouldSelect = false) {
   const firstInput = modal.querySelector('input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])');
   if (!firstInput) return;
 
-  firstInput.removeAttribute('readonly');
-  firstInput.disabled = false;
-  firstInput.tabIndex = 0;
+  modal.querySelectorAll('input, textarea, select, button').forEach((el) => {
+    el.disabled = false;
+    if (el.matches('input, textarea')) el.readOnly = false;
+    el.removeAttribute('readonly');
+    el.removeAttribute('aria-disabled');
+    el.tabIndex = el.dataset.originalTabindex ? Number(el.dataset.originalTabindex) : 0;
+  });
+
   firstInput.focus({ preventScroll: true });
+  if (document.activeElement !== firstInput) {
+    firstInput.click();
+    firstInput.focus({ preventScroll: true });
+  }
   if (shouldSelect && typeof firstInput.select === 'function') firstInput.select();
 }
 
@@ -82,11 +103,13 @@ function openModal(id) {
 
   closeAllModals(id);
   modal.classList.add('show');
+  modal.removeAttribute('aria-hidden');
   syncModalInteractionState();
 
   requestAnimationFrame(() => {
     forceInputFocus(modal, true);
     setTimeout(() => forceInputFocus(modal), 80);
+    setTimeout(() => forceInputFocus(modal), 250);
   });
 }
 
@@ -94,6 +117,7 @@ function closeModal(id) {
   const modal = document.getElementById(id);
   if (!modal) return;
   modal.classList.remove('show');
+  modal.setAttribute('aria-hidden', 'true');
   syncModalInteractionState();
 }
 window.closeModal = closeModal;
@@ -392,6 +416,13 @@ window.api.wa.onAuthFailure(({ accountId }) => {
   if (pendingQrAccountId === accountId) pendingQrAccountId = null;
   closeModal('qrModal');
   showToast(`Autentikasi gagal untuk "${accountId}"`, 'error');
+  refreshAccounts();
+});
+
+window.api.wa.onErrorState(({ accountId, error }) => {
+  if (pendingQrAccountId === accountId) pendingQrAccountId = null;
+  closeModal('qrModal');
+  showToast(`Akun "${accountId}" error: ${error || 'gagal terhubung'}`, 'error');
   refreshAccounts();
 });
 

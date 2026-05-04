@@ -145,6 +145,10 @@ function setupManagerEvents() {
     if (mainWindow) mainWindow.webContents.send('wa:auth_failure', { accountId });
   });
 
+  waManager.on('error_state', (accountId, error) => {
+    if (mainWindow) mainWindow.webContents.send('wa:error-state', { accountId, error });
+  });
+
   broadcastManager.on('progress', (data) => {
     if (mainWindow) mainWindow.webContents.send('broadcast:progress', data);
   });
