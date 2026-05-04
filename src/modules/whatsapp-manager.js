@@ -13,8 +13,22 @@ const SESSION_PATH = path.join(
   'sessions'
 );
 
+const SESSION_CLEANUP_RETRIES = 8;
+const SESSION_CLEANUP_DELAY_MS = 500;
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isBusyOrMissingError(err) {
+  const message = String(err?.message || err || '');
+  return err?.code === 'EBUSY'
+    || err?.code === 'EPERM'
+    || err?.code === 'ENOENT'
+    || message.includes('EBUSY')
+    || message.includes('EPERM')
+    || message.includes('locked')
+    || message.includes('resource busy');
 }
 
 class WhatsAppManager extends EventEmitter {
@@ -84,8 +98,7 @@ class WhatsAppManager extends EventEmitter {
           '--disable-extensions',
           '--disable-background-networking',
           '--disable-default-apps',
-          '--disable-features=site-per-process',
-          `--user-data-dir=${path.join(SESSION_PATH, `chrome-profile-${accountId}`)}`
+          '--disable-features=site-per-process'
         ]
       },
       takeoverOnConflict: true,
@@ -190,7 +203,9 @@ class WhatsAppManager extends EventEmitter {
       if (this.clients[accountId]) {
         this.clients[accountId].status = 'error';
         this.clients[accountId].initializing = false;
+        this.clients[accountId].lastError = err?.message || String(err);
         this.saveAccounts();
+        this.emit('error_state', accountId, this.clients[accountId].lastError);
       }
       throw err;
     }
@@ -218,7 +233,35 @@ class WhatsAppManager extends EventEmitter {
     delete this.clients[accountId];
 
     if (!options.keepAccount) {
+      await this.cleanupAccountSession(accountId);
       this.saveAccounts();
+    }
+  }
+
+  async cleanupAccountSession(accountId) {
+    const targets = [
+      path.join(SESSION_PATH, `session-${accountId}`),
+      path.join(SESSION_PATH, `chrome-profile-${accountId}`)
+    ];
+
+    // Chromium/LocalAuth can keep lock files briefly on Windows after destroy().
+    // Retry cleanup so "hapus akun -> tambah akun lagi" starts from a clean session
+    // without requiring a full application refresh/restart.
+    for (const target of targets) {
+      for (let attempt = 1; attempt <= SESSION_CLEANUP_RETRIES; attempt++) {
+        try {
+          if (fs.existsSync(target)) {
+            fs.rmSync(target, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
+          }
+          break;
+        } catch (err) {
+          if (attempt === SESSION_CLEANUP_RETRIES || !isBusyOrMissingError(err)) {
+            console.warn(`Gagal membersihkan session "${target}":`, err.message || err);
+            break;
+          }
+          await sleep(SESSION_CLEANUP_DELAY_MS);
+        }
+      }
     }
   }
 
@@ -252,6 +295,7 @@ class WhatsAppManager extends EventEmitter {
     if (!this.clients[accountId]) {
       const accounts = store.get('wa_accounts', []).filter((account) => account.id !== accountId);
       store.set('wa_accounts', accounts);
+      await this.cleanupAccountSession(accountId);
       return;
     }
 

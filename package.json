@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-manager",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "WhatsApp Multi-Account Manager Desktop App",
   "main": "main.js",
   "scripts": {
@@ -21,7 +21,7 @@
     "win": {
       "target": "nsis",
       "icon": "assets/icon.ico",
-      "artifactName": "${productName}-Setup-${version}.${ext}"
+      "artifactName": "WA-Manager-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,

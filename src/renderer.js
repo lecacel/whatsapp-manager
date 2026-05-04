@@ -46,7 +46,26 @@ function closeAllModals(exceptId = null) {
   });
 }
 
-function forceInputFocus(modal) {
+function setWebviewsInteractive(interactive) {
+  document.querySelectorAll('webview').forEach((webview) => {
+    if (interactive) {
+      webview.style.pointerEvents = '';
+      webview.removeAttribute('tabindex');
+      return;
+    }
+
+    webview.style.pointerEvents = 'none';
+    webview.setAttribute('tabindex', '-1');
+    try { webview.blur(); } catch (e) {}
+  });
+}
+
+function syncModalInteractionState() {
+  const hasOpenModal = !!document.querySelector('.modal.show');
+  setWebviewsInteractive(!hasOpenModal && currentTab === 'chat');
+}
+
+function forceInputFocus(modal, shouldSelect = false) {
   const firstInput = modal.querySelector('input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])');
   if (!firstInput) return;
 
@@ -54,7 +73,7 @@ function forceInputFocus(modal) {
   firstInput.disabled = false;
   firstInput.tabIndex = 0;
   firstInput.focus({ preventScroll: true });
-  if (typeof firstInput.select === 'function') firstInput.select();
+  if (shouldSelect && typeof firstInput.select === 'function') firstInput.select();
 }
 
 function openModal(id) {
@@ -63,11 +82,11 @@ function openModal(id) {
 
   closeAllModals(id);
   modal.classList.add('show');
+  syncModalInteractionState();
 
   requestAnimationFrame(() => {
-    forceInputFocus(modal);
+    forceInputFocus(modal, true);
     setTimeout(() => forceInputFocus(modal), 80);
-    setTimeout(() => forceInputFocus(modal), 200);
   });
 }
 
@@ -75,6 +94,7 @@ function closeModal(id) {
   const modal = document.getElementById(id);
   if (!modal) return;
   modal.classList.remove('show');
+  syncModalInteractionState();
 }
 window.closeModal = closeModal;
 
@@ -172,6 +192,8 @@ async function switchTab(tab) {
   // The AI tab has its own robust account renderer, so it must still run
   // even when `wa:get-accounts` is slow/stuck during WhatsApp startup.
   await refreshAccounts(false, { silent: tab === 'ai', timeoutMs: tab === 'ai' ? 3000 : 8000 });
+
+  syncModalInteractionState();
 
   if (tab === 'accounts') renderAccounts();
   if (tab === 'chat') refreshChatTab();
@@ -324,6 +346,7 @@ window.removeAccount = async function(accountId) {
   if (!confirm('Yakin ingin menghapus akun ini?')) return;
   const result = await window.api.wa.removeAccount({ accountId });
   if (result.success) {
+    if (pendingQrAccountId === accountId) pendingQrAccountId = null;
     showToast('Akun berhasil dihapus', 'success');
     refreshAccounts();
   } else {
@@ -945,10 +968,12 @@ function activateWaWebviewTab(id, shouldSave = true) {
       } else {
         tab.webview.classList.remove('active');
         tab.webview.style.display = 'none';
+        try { tab.webview.blur(); } catch(e) {}
       }
     }
   });
   renderWaWebviewTabs();
+  syncModalInteractionState();
   if (shouldSave) saveWaWebviewState();
 }
 window.activateWaWebviewTab = activateWaWebviewTab;
