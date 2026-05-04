@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data: blob: https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; frame-src https://web.whatsapp.com https://*.whatsapp.net https://*.whatsapp.com;">
+  <title>WA Manager - WhatsApp Multi Account</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span class="logo-icon">💬</span>
+          <span class="logo-text">WA Manager</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="accounts">
+          <span class="nav-icon">👤</span>
+          <span class="nav-label">Akun</span>
+          <span class="nav-badge" id="accountBadge">0</span>
+        </button>
+        <button class="nav-item" data-tab="chat">
+          <span class="nav-icon">💬</span>
+          <span class="nav-label">Chat</span>
+        </button>
+        <button class="nav-item" data-tab="broadcast">
+          <span class="nav-icon">📢</span>
+          <span class="nav-label">Broadcast</span>
+        </button>
+        <button class="nav-item" data-tab="warmer">
+          <span class="nav-icon">🔥</span>
+          <span class="nav-label">Warmer</span>
+        </button>
+        <button class="nav-item" data-tab="autoreply">
+          <span class="nav-icon">↩️</span>
+          <span class="nav-label">Auto Reply</span>
+        </button>
+        <button class="nav-item" data-tab="ai">
+          <span class="nav-icon">🤖</span>
+          <span class="nav-label">AI CS</span>
+        </button>
+        <button class="nav-item" data-tab="update">
+          <span class="nav-icon">🔄</span>
+          <span class="nav-label">Update</span>
+        </button>
+        <button class="nav-item" data-tab="about">
+          <span class="nav-icon">ℹ️</span>
+          <span class="nav-label">About</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="app-version">v1.0.0</div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- ============================================================ -->
+      <!-- TAB: Accounts -->
+      <!-- ============================================================ -->
+      <div class="tab-content active" id="tab-accounts">
+        <div class="content-header">
+          <h1>📱 Manajemen Akun WhatsApp</h1>
+          <button class="btn btn-primary" id="btnAddAccount">
+            <span>➕</span> Tambah Akun
+          </button>
+        </div>
+
+        <!-- Add Account Modal -->
+        <div class="modal" id="addAccountModal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2>Tambah Akun Baru</h2>
+              <button class="modal-close" onclick="closeModal('addAccountModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label for="accountName">Nama Akun</label>
+                <input type="text" id="accountName" placeholder="Contoh: Akun Bisnis 1" class="form-control">
+              </div>
+              <div class="form-group">
+                <label for="accountId">ID Akun (unik)</label>
+                <input type="text" id="accountId" placeholder="Contoh: akun1" class="form-control">
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="closeModal('addAccountModal')">Batal</button>
+              <button class="btn btn-primary" id="btnConfirmAddAccount">Tambah</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- QR Code Modal -->
+        <div class="modal" id="qrModal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2>Scan QR Code</h2>
+              <button class="modal-close" onclick="cancelQrModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+              <p>Buka WhatsApp > Menu > Perangkat Tertaut > Tautkan Perangkat</p>
+              <div id="qrCodeContainer">
+                <div class="loading-spinner"></div>
+                <p>Menunggu QR Code...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Accounts List -->
+        <div class="accounts-grid" id="accountsGrid">
+          <div class="empty-state">
+            <span class="empty-icon">📱</span>
+            <h3>Belum ada akun</h3>
+            <p>Klik "Tambah Akun" untuk menambahkan akun WhatsApp baru</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- TAB: Chat Webview (WhatsApp Web Multi Account) -->
+      <!-- ============================================================ -->
+      <div class="tab-content" id="tab-chat">
+        <div class="wa-webview-shell">
+          <div class="wa-webview-toolbar">
+            <div class="wa-webview-tabs" id="waWebviewTabs"></div>
+            <button class="wa-webview-add" id="btnAddWaWebview" type="button" title="Tambah tab akun WhatsApp Web">＋</button>
+          </div>
+          <div class="wa-webview-stage" id="waWebviewStage">
+            <div class="wa-webview-empty" id="waWebviewEmpty">
+              <span class="empty-icon">💬</span>
+              <h3>WhatsApp Web Multi Account</h3>
+              <p>Klik tombol <strong>＋</strong> untuk membuka tab WhatsApp Web baru, lalu login/scan QR. Setiap tab memakai sesi terpisah sehingga bisa dipakai untuk akun berbeda.</p>
+              <button class="btn btn-primary" id="btnCreateFirstWaWebview" type="button">＋ Buka WhatsApp Web</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hidden legacy chat DOM kept for backward-compatible listeners. -->
+        <div class="chat-container legacy-chat-hidden" aria-hidden="true">
+          <div id="chatAccountTabs"></div>
+          <input id="chatSearch" type="hidden">
+          <button id="btnRefreshChats" type="button"></button>
+          <button id="btnNewChat" type="button"></button>
+          <div id="chatList"></div>
+          <div id="chatHeader"></div>
+          <div id="chatMessages"></div>
+          <div id="chatAttachmentPreview" style="display: none;">
+            <span id="chatAttachmentName"></span>
+            <button id="btnRemoveAttachment" type="button"></button>
+          </div>
+          <button id="btnAttachMedia" type="button" disabled></button>
+          <input type="file" id="chatFileInput" style="display: none;">
+          <textarea id="chatMessageInput" rows="1" disabled></textarea>
+          <button id="btnSendChatMessage" type="button" disabled></button>
+        </div>
+
+        <div class="modal" id="newChatModal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2>Mulai Chat Baru</h2>
+              <button class="modal-close" onclick="closeModal('newChatModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>Nomor WhatsApp (contoh: 0812... atau 62812...)</label>
+                <input type="text" id="newChatNumber" placeholder="08123456789" class="form-control">
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="closeModal('newChatModal')">Batal</button>
+              <button class="btn btn-primary" id="btnOpenNewChat">Mulai Chat</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- TAB: Broadcast -->
+      <!-- ============================================================ -->
+      <div class="tab-content" id="tab-broadcast">
+        <div class="content-header">
+          <h1>📢 Broadcast Message</h1>
+        </div>
+
+        <div class="broadcast-container">
+          <div class="card">
+            <h3>Pesan Massal</h3>
+            <div class="form-group">
+              <label>Pilih Akun Pengirim</label>
+              <div id="broadcastAccounts" class="account-toggles">
+                <p class="text-muted">Memuat akun...</p>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Nomor Tujuan (satu per baris)</label>
+              <textarea id="broadcastNumbers" class="form-control" rows="5" placeholder="628123456789&#10;089988776655"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Isi Pesan</label>
+              <textarea id="broadcastMessage" class="form-control" rows="5" placeholder="Halo, ini pesan broadcast..."></textarea>
+            </div>
+            <div class="form-group">
+              <label>Lampiran File (Opsional)</label>
+              <input type="file" id="broadcastFile" class="form-control">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Jeda Min (detik)</label>
+                <input type="number" id="broadcastMinDelay" value="5" min="1" class="form-control">
+              </div>
+              <div class="form-group">
+                <label>Jeda Max (detik)</label>
+                <input type="number" id="broadcastMaxDelay" value="15" min="2" class="form-control">
+              </div>
+            </div>
+            <button class="btn btn-primary" id="btnStartBroadcast">🚀 Kirim Sekarang</button>
+          </div>
+
+          <div class="card">
+            <h3>📋 Log Broadcast</h3>
+            <div id="broadcastLog" class="log-container">
+              <div class="empty-state small">
+                <p>Belum ada aktivitas</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- TAB: Warmer -->
+      <!-- ============================================================ -->
+      <div class="tab-content" id="tab-warmer">
+        <div class="content-header">
+          <h1>🔥 Account Warmer</h1>
+        </div>
+
+        <div class="warmer-container">
+          <div class="card">
+            <h3>Pengaturan Warmer</h3>
+            <p class="card-description">
+              Fitur ini akan otomatis mengirim pesan antar akun yang terhubung untuk "menghangatkan" akun baru 
+              agar terlihat aktif dan mengurangi risiko ban.
+            </p>
+
+            <div class="form-group">
+              <label>Pasangan Akun (Pilih minimal 2 akun yang akan saling kirim pesan)</label>
+              <div id="warmerAccountPairs" class="warmer-pairs">
+                <p class="text-muted">Memuat akun...</p>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Interval Min (detik)</label>
+                <input type="number" id="warmerMinInterval" value="2" min="1" class="form-control">
+              </div>
+              <div class="form-group">
+                <label>Interval Max (detik)</label>
+                <input type="number" id="warmerMaxInterval" value="6" min="2" class="form-control">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Typing Min (detik)</label>
+                <input type="number" id="warmerTypingMin" value="1" min="0" class="form-control">
+              </div>
+              <div class="form-group">
+                <label>Typing Max (detik)</label>
+                <input type="number" id="warmerTypingMax" value="3" min="1" class="form-control">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="warmerHumanMode" checked>
+                Mode percakapan manusiawi: saling balas, ada typing, dan delay balasan natural
+              </label>
+            </div>
+
+            <div class="btn-group">
+              <button class="btn btn-success" id="btnStartWarmer">▶️ Mulai Warmer</button>
+              <button class="btn btn-danger" id="btnStopWarmer" disabled>⏹️ Stop Warmer</button>
+            </div>
+
+            <div class="warmer-status-bar" id="warmerStatusBar">
+              <span class="status-dot inactive"></span>
+              <span>Warmer tidak aktif</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>📋 Log Warmer</h3>
+            <div id="warmerLog" class="log-container">
+              <div class="empty-state small">
+                <p>Belum ada aktivitas</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- TAB: Auto Reply -->
+      <!-- ============================================================ -->
+      <div class="tab-content" id="tab-autoreply">
+        <div class="content-header">
+          <h1>↩️ Auto Reply</h1>
+          <button class="btn btn-primary" id="btnAddRule">
+            <span>➕</span> Tambah Rule
+          </button>
+        </div>
+
+        <div class="autoreply-container">
+          <!-- Toggle per account -->
+          <div class="card">
+            <h3>Aktifkan Auto Reply per Akun</h3>
+            <div id="autoReplyAccountToggles" class="account-toggles">
+              <p class="text-muted">Memuat akun...</p>
+            </div>
+          </div>
+
+          <!-- Rules List -->
+          <div class="card">
+            <h3>Daftar Rules</h3>
+            <div id="autoReplyRules" class="rules-list">
+              <div class="empty-state small">
+                <p>Belum ada rule. Klik "Tambah Rule" untuk membuat.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Log -->
+          <div class="card">
+            <h3>📋 Log Auto Reply</h3>
+            <div id="autoReplyLog" class="log-container">
+              <div class="empty-state small">
+                <p>Belum ada aktivitas</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Add Rule Modal -->
+        <div class="modal" id="addRuleModal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2 id="ruleModalTitle">Tambah Rule Baru</h2>
+              <button class="modal-close" onclick="closeModal('addRuleModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>Nama Rule</label>
+                <input type="text" id="ruleName" placeholder="Contoh: Greeting" class="form-control">
+              </div>
+              <div class="form-group">
+                <label>Kata Kunci (pisahkan dengan koma)</label>
+                <input type="text" id="ruleKeywords" placeholder="halo, hai, hello, hi" class="form-control">
+              </div>
+              <div class="form-group">
+                <label>Tipe Pencocokan</label>
+                <select id="ruleMatchType" class="form-control">
+                  <option value="contains">Mengandung kata kunci</option>
+                  <option value="exact">Sama persis</option>
+                  <option value="startsWith">Dimulai dengan</option>
+                  <option value="regex">Regex</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Balasan</label>
+                <textarea id="ruleReply" class="form-control" rows="3" placeholder="Pesan balasan otomatis..."></textarea>
+              </div>
+              <div class="form-group">
+                <label>Prioritas (semakin tinggi = lebih diutamakan)</label>
+                <input type="number" id="rulePriority" value="0" class="form-control">
+              </div>
+              <div class="form-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="ruleReplyInGroups">
+                  Balas juga di grup
+                </label>
+              </div>
+              <input type="hidden" id="ruleEditId">
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="closeModal('addRuleModal')">Batal</button>
+              <button class="btn btn-primary" id="btnSaveRule">Simpan</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- TAB: AI Customer Service -->
+      <!-- ============================================================ -->
+      <div class="tab-content" id="tab-ai">
+        <div class="content-header">
+          <h1>🤖 AI Customer Service (Gemini)</h1>
+        </div>
+
+        <div class="ai-container">
+          <!-- AI Config -->
+          <div class="card">
+            <h3>⚙️ Konfigurasi AI</h3>
+            <div class="form-group">
+              <label>Gemini API Key 
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="link-small">(Dapatkan gratis di sini)</a>
+              </label>
+              <input type="password" id="aiApiKey" placeholder="Masukkan API Key Gemini..." class="form-control">
+            </div>
+            <div class="form-group">
+              <label>Model</label>
+              <select id="aiModel" class="form-control">
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended)</option>
+                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>System Prompt (Instruksi untuk AI)</label>
+              <textarea id="aiSystemPrompt" class="form-control" rows="4" placeholder="Instruksi behavior AI sebagai CS..."></textarea>
+            </div>
+            <div class="form-group">
+              <label>Max Tokens Response</label>
+              <input type="number" id="aiMaxTokens" value="500" min="50" max="4000" class="form-control">
+            </div>
+            <button class="btn btn-primary" id="btnSaveAIConfig">💾 Simpan Konfigurasi</button>
+          </div>
+
+          <!-- Enable per account -->
+          <div class="card">
+            <h3>Aktifkan AI CS per Akun</h3>
+            <div id="aiAccountToggles" class="account-toggles">
+              <p class="text-muted">Memuat akun...</p>
+            </div>
+          </div>
+
+          <!-- Test AI -->
+          <div class="card">
+            <h3>🧪 Test AI</h3>
+            <div class="form-group">
+              <label>Pesan Test</label>
+              <input type="text" id="aiTestMessage" placeholder="Ketik pesan untuk test AI..." class="form-control">
+            </div>
+            <button class="btn btn-secondary" id="btnTestAI">Kirim Test</button>
+            <div id="aiTestResult" class="ai-test-result" style="display:none;">
+              <h4>Respon AI:</h4>
+              <p id="aiTestResponse"></p>
+            </div>
+          </div>
+
+          <!-- Log -->
+          <div class="card">
+            <h3>📋 Log AI CS</h3>
+            <div id="aiLog" class="log-container">
+              <div class="empty-state small">
+                <p>Belum ada aktivitas</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- ============================================================ -->
+      <!-- TAB: Update -->
+      <!-- ============================================================ -->
+      <div class="tab-content" id="tab-update">
+        <div class="content-header">
+          <h1>🔄 Update Aplikasi</h1>
+        </div>
+
+        <div class="update-container">
+          <div class="card">
+            <h3>Informasi Versi</h3>
+            <div class="update-info">
+              <div class="update-info-row">
+                <span class="update-label">Versi Saat Ini:</span>
+                <span class="update-value" id="updateCurrentVersion">--</span>
+              </div>
+              <div class="update-info-row">
+                <span class="update-label">Versi Terbaru:</span>
+                <span class="update-value" id="updateLatestVersion">--</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" id="updateStatusCard">
+            <h3>Status</h3>
+            <div id="updateStatusMessage" class="update-status">
+              <span class="status-dot idle"></span>
+              <span>Siap diperiksa</span>
+            </div>
+            <div class="update-progress-container" id="updateProgressContainer" style="display:none;">
+              <div class="progress-bar">
+                <div class="progress-fill" id="updateProgressFill" style="width: 0%;"></div>
+              </div>
+              <span class="progress-text" id="updateProgressText">0%</span>
+            </div>
+          </div>
+
+          <div class="btn-group">
+            <button class="btn btn-primary" id="btnCheckUpdate">🔍 Cek Update</button>
+            <button class="btn btn-success" id="btnDownloadUpdate" disabled>⬇️ Download Update</button>
+            <button class="btn btn-warning" id="btnInstallRestart" disabled>🔄 Install & Restart</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- TAB: About -->
+      <!-- ============================================================ -->
+      <div class="tab-content" id="tab-about">
+        <div class="about-container">
+          <div class="about-card">
+            <div class="about-logo">💬</div>
+            <h1 class="about-title">WA Manager</h1>
+            <p class="about-subtitle">WhatsApp Multi-Account Manager</p>
+            <div class="about-version-badge" id="aboutVersion">v1.0.0</div>
+            <div class="about-divider"></div>
+            <div class="about-info">
+              <div class="about-info-row">
+                <span class="about-info-label">Dibuat oleh:</span>
+                <span class="about-info-value">Marcel S</span>
+              </div>
+              <div class="about-info-row">
+                <span class="about-info-label">Deskripsi:</span>
+                <span class="about-info-value">Aplikasi manajemen multi-akun WhatsApp untuk desktop. Mendukung broadcast, auto-reply, AI customer service, dan account warmer.</span>
+              </div>
+              <div class="about-info-row">
+                <span class="about-info-label">Teknologi:</span>
+                <span class="about-info-value">Electron, whatsapp-web.js, Node.js</span>
+              </div>
+            </div>
+            <div class="about-divider"></div>
+            <p class="about-footer-text">© 2026 Marcel S. All rights reserved.</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

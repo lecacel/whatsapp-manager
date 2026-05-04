@@ -1,0 +1,494 @@
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage, session } = require('electron');
+const path = require('path');
+const { autoUpdater } = require('electron-updater');
+
+// Silence punycode deprecation warning
+process.noDeprecation = true;
+
+// Reduce noisy Chromium cache/GPU cache errors in the terminal.
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
+app.commandLine.appendSwitch('disable-gpu-program-cache');
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+  process.exit(0);
+}
+
+const Store = require('electron-store');
+const store = new Store();
+
+let mainWindow;
+let tray;
+
+// Import managers
+const WhatsAppManager = require('./src/modules/whatsapp-manager');
+const BroadcastManager = require('./src/modules/broadcast-manager');
+const WarmerManager = require('./src/modules/warmer-manager');
+const AutoReplyManager = require('./src/modules/autoreply-manager');
+const AIManager = require('./src/modules/ai-manager');
+
+// Initialize managers
+const waManager = new WhatsAppManager();
+const broadcastManager = new BroadcastManager(waManager);
+const warmerManager = new WarmerManager(waManager);
+const autoReplyManager = new AutoReplyManager(waManager);
+const aiManager = new AIManager(waManager);
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 1024,
+    minHeight: 680,
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: false,
+      webviewTag: true,
+      devTools: false
+    },
+    icon: path.join(__dirname, 'assets', 'icon.png'),
+    title: 'WA Manager - WhatsApp Multi Account',
+    show: false,
+    backgroundColor: '#0f172a'
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isAllowedWhatsAppWebviewUrl(url)) {
+      return { action: 'allow' };
+    }
+
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        webPreferences: {
+          partition: `persist:wa-webview-popup-${Date.now()}`,
+          contextIsolation: true,
+          nodeIntegration: false,
+          webSecurity: true,
+          devTools: false
+        }
+      }
+    };
+  });
+
+  mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
+
+  mainWindow.on('close', (event) => {
+    if (!app.isQuiting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
+  setupManagerEvents();
+}
+
+function setupManagerEvents() {
+  waManager.on('qr', (accountId, qr) => {
+    if (mainWindow) mainWindow.webContents.send('wa:qr', { accountId, qr });
+  });
+
+  waManager.on('ready', (accountId, info) => {
+    if (mainWindow) mainWindow.webContents.send('wa:ready', { accountId, info });
+  });
+
+  waManager.on('authenticated', (accountId) => {
+    if (mainWindow) mainWindow.webContents.send('wa:authenticated', { accountId });
+  });
+
+  waManager.on('disconnected', (accountId) => {
+    if (mainWindow) mainWindow.webContents.send('wa:disconnected', { accountId });
+  });
+
+  waManager.on('message', (accountId, message) => {
+    if (mainWindow) mainWindow.webContents.send('wa:message', { accountId, message });
+    autoReplyManager.handleMessage(accountId, message);
+    aiManager.handleMessage(accountId, message);
+  });
+
+  waManager.on('auth_failure', (accountId) => {
+    if (mainWindow) mainWindow.webContents.send('wa:auth_failure', { accountId });
+  });
+
+  broadcastManager.on('progress', (data) => {
+    if (mainWindow) mainWindow.webContents.send('broadcast:progress', data);
+  });
+
+  broadcastManager.on('completed', (data) => {
+    if (mainWindow) mainWindow.webContents.send('broadcast:completed', data);
+  });
+
+  broadcastManager.on('error', (data) => {
+    if (mainWindow) mainWindow.webContents.send('broadcast:error', data);
+  });
+
+  warmerManager.on('message_sent', (data) => {
+    if (mainWindow) mainWindow.webContents.send('warmer:message_sent', data);
+  });
+
+  warmerManager.on('status', (data) => {
+    if (mainWindow) mainWindow.webContents.send('warmer:status', data);
+  });
+
+  autoReplyManager.on('replied', (data) => {
+    if (mainWindow) mainWindow.webContents.send('autoreply:replied', data);
+  });
+
+  aiManager.on('replied', (data) => {
+    if (mainWindow) mainWindow.webContents.send('ai:replied', data);
+  });
+}
+
+// IPC Handlers
+ipcMain.handle('wa:add-account', async (event, { accountId, name }) => {
+  try {
+    await waManager.addAccount(accountId, name);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('wa:remove-account', async (event, { accountId }) => {
+  try {
+    await waManager.removeAccount(accountId);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('wa:get-accounts', async () => waManager.getAccounts());
+
+ipcMain.handle('wa:get-status', async (event, { accountId }) => waManager.getStatus(accountId));
+
+ipcMain.handle('wa:logout', async (event, { accountId }) => {
+  try {
+    await waManager.logout(accountId);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('wa:get-contacts', async (event, { accountId }) => {
+  try {
+    const contacts = await waManager.getContacts(accountId);
+    return { success: true, contacts };
+  } catch (err) {
+    return { success: false, error: err.message, contacts: [] };
+  }
+});
+
+ipcMain.handle('wa:get-all-chats', async (event, { accountId }) => {
+  try {
+    const chats = await waManager.getAllChats(accountId);
+    return { success: true, chats };
+  } catch (err) {
+    return { success: false, error: err.message, chats: [] };
+  }
+});
+
+ipcMain.handle('wa:send-message', async (event, { accountId, to, message, mediaPath }) => {
+  try {
+    if (mediaPath) {
+      await waManager.sendMessageWithMedia(accountId, to, message || '', mediaPath);
+    } else {
+      await waManager.sendMessage(accountId, to, message);
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('chat:get-messages', async (event, { accountId, chatId, limit }) => {
+  try {
+    const messages = await waManager.getChatMessages(accountId, chatId, limit || 100);
+    return { success: true, messages };
+  } catch (err) {
+    return { success: false, error: err.message, messages: [] };
+  }
+});
+
+ipcMain.handle('chat:download-media', async (event, { accountId, messageId }) => {
+  try {
+    const media = await waManager.downloadMedia(accountId, messageId);
+    return { success: !!media, media };
+  } catch (err) {
+    return { success: false, error: err.message, media: null };
+  }
+});
+
+ipcMain.handle('broadcast:start', async (event, params) => {
+  try {
+    await broadcastManager.startBroadcast(params);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('broadcast:stop', async (event, { broadcastId }) => {
+  broadcastManager.stopBroadcast(broadcastId);
+  return { success: true };
+});
+
+ipcMain.handle('broadcast:get-list', async () => broadcastManager.getBroadcastList());
+
+ipcMain.handle('warmer:start', async (event, params) => {
+  try {
+    warmerManager.startWarmer(params);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('warmer:stop', async () => {
+  warmerManager.stopWarmer();
+  return { success: true };
+});
+
+ipcMain.handle('warmer:get-status', async () => warmerManager.getStatus());
+
+ipcMain.handle('warmer:get-log', async () => warmerManager.getLog());
+
+ipcMain.handle('autoreply:get-rules', async () => autoReplyManager.getRules());
+
+ipcMain.handle('autoreply:add-rule', async (event, rule) => {
+  autoReplyManager.addRule(rule);
+  return { success: true };
+});
+
+ipcMain.handle('autoreply:update-rule', async (event, rule) => {
+  autoReplyManager.updateRule(rule);
+  return { success: true };
+});
+
+ipcMain.handle('autoreply:delete-rule', async (event, { ruleId }) => {
+  autoReplyManager.deleteRule(ruleId);
+  return { success: true };
+});
+
+ipcMain.handle('autoreply:toggle', async (event, { accountId, enabled }) => {
+  autoReplyManager.toggleForAccount(accountId, enabled);
+  return { success: true };
+});
+
+ipcMain.handle('autoreply:get-enabled-accounts', async () => autoReplyManager.getEnabledAccounts());
+
+ipcMain.handle('autoreply:get-log', async () => autoReplyManager.getLog());
+
+ipcMain.handle('ai:set-config', async (event, config) => {
+  aiManager.setConfig(config);
+  return { success: true };
+});
+
+ipcMain.handle('ai:get-config', async () => aiManager.getConfig());
+
+ipcMain.handle('ai:toggle', async (event, { accountId, enabled }) => {
+  aiManager.toggleForAccount(accountId, enabled);
+  return { success: true };
+});
+
+ipcMain.handle('ai:get-enabled-accounts', async () => aiManager.getEnabledAccounts());
+
+ipcMain.handle('ai:get-log', async () => aiManager.getLog());
+
+ipcMain.handle('ai:test', async (event, { message }) => {
+  try {
+    const response = await aiManager.testAI(message);
+    return { success: true, response };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('dialog:open-file', async (event, options) => {
+  const result = await dialog.showOpenDialog(mainWindow, options || {
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: 'All Files', extensions: ['*'] },
+      { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] },
+      { name: 'Documents', extensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx'] },
+      { name: 'Videos', extensions: ['mp4', 'avi', 'mkv'] }
+    ]
+  });
+  return result;
+});
+
+ipcMain.handle('store:get', async (event, key) => store.get(key));
+
+ipcMain.handle('store:set', async (event, { key, value }) => {
+  store.set(key, value);
+  return { success: true };
+});
+
+// Auto-Updater Setup
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = true;
+
+function setupAutoUpdater() {
+  autoUpdater.on('checking-for-update', () => {
+    console.log('[AutoUpdate] Checking for update...');
+    if (mainWindow) mainWindow.webContents.send('update:checking');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('[AutoUpdate] Update available:', info.version);
+    if (mainWindow) mainWindow.webContents.send('update:available', info);
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('[AutoUpdate] App is up to date.');
+    if (mainWindow) mainWindow.webContents.send('update:not-available', info);
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    console.log(`[AutoUpdate] Downloading: ${progress.percent.toFixed(1)}%`);
+    if (mainWindow) mainWindow.webContents.send('update:progress', progress);
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('[AutoUpdate] Update downloaded. Will install on quit.');
+    if (mainWindow) mainWindow.webContents.send('update:downloaded', info);
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('[AutoUpdate] Error:', err.message);
+    if (mainWindow) mainWindow.webContents.send('update:error', { message: err.message });
+  });
+
+  // Check for updates on startup
+  autoUpdater.checkForUpdates().catch(err => {
+    console.error('[AutoUpdate] Check failed:', err.message);
+  });
+}
+
+// IPC: manually trigger update check
+ipcMain.handle('update:check', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { success: true, updateInfo: result ? result.updateInfo : null };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// IPC: download the available update
+ipcMain.handle('update:download', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// IPC: install the downloaded update and restart
+ipcMain.handle('update:install-and-restart', async () => {
+  app.isQuiting = true;
+  autoUpdater.quitAndInstall(false, true);
+  return { success: true };
+});
+
+// IPC: get current app version
+ipcMain.handle('app:get-version', async () => {
+  return app.getVersion();
+});
+
+// App Lifecycle
+app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
+  configureWebviewSessions();
+  createWindow();
+  createTray();
+  setupAutoUpdater();
+});
+
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  }
+});
+
+function configureWebviewSessions() {
+  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+    if (details.url.startsWith('https://web.whatsapp.com/')) {
+      details.requestHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+    }
+    callback({ requestHeaders: details.requestHeaders });
+  });
+
+  app.on('web-contents-created', (event, contents) => {
+    if (contents.getType() === 'webview') {
+      contents.setWindowOpenHandler(({ url }) => {
+        if (isAllowedWhatsAppWebviewUrl(url)) return { action: 'allow' };
+        return { action: 'deny' };
+      });
+
+      contents.on('will-navigate', (e, url) => {
+        if (!isAllowedWhatsAppWebviewUrl(url)) e.preventDefault();
+      });
+    }
+  });
+}
+
+function isAllowedWhatsAppWebviewUrl(url) {
+  try {
+    if (!url) return false;
+    if (url.startsWith('about:blank') || url.startsWith('devtools://')) return true;
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    return host.includes('whatsapp.com') || host.includes('whatsapp.net') || host.includes('wa.me');
+  } catch {
+    return false;
+  }
+}
+
+function createTray() {
+  try {
+    const iconPath = path.join(__dirname, 'assets', 'icon.png');
+    const icon = nativeImage.createFromPath(iconPath);
+    tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
+    const contextMenu = Menu.buildFromTemplate([
+      { label: 'WA Manager', enabled: false },
+      { type: 'separator' },
+      { label: 'Open', click: () => mainWindow.show() },
+      { label: 'Quit', click: () => { app.isQuiting = true; app.quit(); } }
+    ]);
+    tray.setToolTip('WA Manager');
+    tray.setContextMenu(contextMenu);
+    tray.on('double-click', () => mainWindow.show());
+  } catch (e) {
+    console.log('Tray creation skipped:', e.message);
+  }
+}
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    // Keep running
+  }
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  else mainWindow.show();
+});
+
+app.on('before-quit', () => {
+  app.isQuiting = true;
+  waManager.destroyAll();
+});

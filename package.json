@@ -1,0 +1,57 @@
+{
+  "name": "whatsapp-manager",
+  "version": "1.0.1",
+  "description": "WhatsApp Multi-Account Manager Desktop App",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "dev": "electron . --dev"
+  },
+  "build": {
+    "appId": "com.wamanager.app",
+    "productName": "WA Manager",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "lecacel",
+        "repo": "whatsapp-manager"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "files": [
+      "**/*",
+      "!node_modules/.cache"
+    ]
+  },
+  "keywords": [
+    "whatsapp",
+    "multi-account",
+    "broadcast",
+    "automation"
+  ],
+  "author": "WA Manager",
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "axios": "^1.6.0",
+    "electron-store": "^8.1.0",
+    "electron-updater": "^6.8.3",
+    "mime-types": "^2.1.35",
+    "puppeteer": "^24.42.0",
+    "qrcode": "^1.5.3",
+    "uuid": "^14.0.0",
+    "whatsapp-web.js": "^1.23.0"
+  },
+  "devDependencies": {
+    "electron": "^41.5.0",
+    "electron-builder": "^26.8.1"
+  }
+}
