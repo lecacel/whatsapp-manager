@@ -6,6 +6,7 @@ let currentAccounts = [];
 let currentTab = 'accounts';
 let autoReplyRules = [];
 let aiConfig = {};
+let isLicenseActive = false;
 
 // WhatsApp Webview state
 const WA_WEBVIEW_URL = 'https://web.whatsapp.com/';
@@ -178,6 +179,7 @@ async function switchTab(tab) {
   if (tab === 'warmer') refreshWarmerTab();
   if (tab === 'autoreply') refreshAutoReplyTab();
   if (tab === 'ai') refreshAITab();
+  if (tab === 'license') refreshLicenseTab();
   if (tab === 'update') refreshUpdateTab();
   if (tab === 'about') refreshAboutTab();
 }
@@ -1175,6 +1177,111 @@ document.getElementById('btnTestAI')?.addEventListener('click', async () => {
 });
 
 // ============================================================
+// License / Serial Key
+// ============================================================
+async function checkLicenseStatus() {
+  try {
+    const result = await window.api.license.check();
+    isLicenseActive = result.active;
+
+    const dot = document.getElementById('licenseDot');
+    const statusText = document.getElementById('licenseStatusText');
+    const details = document.getElementById('licenseDetails');
+    const expiryEl = document.getElementById('licenseExpiry');
+    const daysLeftEl = document.getElementById('licenseDaysLeft');
+    const machineIdDisplay = document.getElementById('machineIdDisplay');
+
+    if (machineIdDisplay) machineIdDisplay.value = result.machineId;
+
+    if (result.active) {
+      dot?.classList.remove('inactive');
+      dot?.classList.add('active');
+      if (statusText) statusText.textContent = 'Lisensi Aktif';
+      if (details) details.style.display = 'block';
+      if (expiryEl) expiryEl.textContent = formatDate(result.expiresAt);
+      if (daysLeftEl) daysLeftEl.textContent = result.daysLeft;
+    } else {
+      dot?.classList.remove('active');
+      dot?.classList.add('inactive');
+      if (statusText) statusText.textContent = result.error || 'Lisensi Tidak Aktif';
+      if (details) details.style.display = 'none';
+    }
+
+    updateFeatureRestrictions();
+  } catch (err) {
+    console.error('Gagal mengecek lisensi:', err);
+  }
+}
+
+function updateFeatureRestrictions() {
+  const restrictedTabs = ['broadcast', 'warmer', 'autoreply', 'ai'];
+  
+  restrictedTabs.forEach(tab => {
+    const navBtn = document.querySelector(`.nav-item[data-tab="${tab}"]`);
+    if (navBtn) {
+      if (isLicenseActive) {
+        navBtn.style.opacity = '1';
+        navBtn.style.cursor = 'pointer';
+        navBtn.title = '';
+      } else {
+        navBtn.style.opacity = '0.5';
+        navBtn.style.cursor = 'not-allowed';
+        navBtn.title = 'Fitur ini memerlukan Serial Key aktif';
+      }
+    }
+  });
+
+  // If current tab is restricted and license is inactive, switch to license tab
+  if (!isLicenseActive && restrictedTabs.includes(currentTab)) {
+    showToast('Akses dibatasi. Silakan aktifkan Serial Key.', 'error');
+    switchTab('license');
+  }
+}
+
+async function refreshLicenseTab() {
+  await checkLicenseStatus();
+}
+
+function initLicenseListeners() {
+  const btnActivate = document.getElementById('btnActivateLicense');
+  const btnCopyId = document.getElementById('btnCopyMachineId');
+  const serialInput = document.getElementById('serialKeyInput');
+
+  btnActivate?.addEventListener('click', async () => {
+    const key = serialInput.value.trim();
+    if (!key) {
+      showToast('Masukkan Serial Key', 'error');
+      return;
+    }
+
+    btnActivate.disabled = true;
+    btnActivate.textContent = '⏳ Memproses...';
+
+    try {
+      const result = await window.api.license.activate({ key });
+      if (result.success) {
+        showToast('Aktivasi Berhasil!', 'success');
+        serialInput.value = '';
+        await checkLicenseStatus();
+      } else {
+        showToast(result.error || 'Aktivasi Gagal', 'error');
+      }
+    } catch (err) {
+      showToast(`Error: ${err.message}`, 'error');
+    } finally {
+      btnActivate.disabled = false;
+      btnActivate.textContent = '🚀 Aktifkan Sekarang';
+    }
+  });
+
+  btnCopyId?.addEventListener('click', () => {
+    const machineId = document.getElementById('machineIdDisplay').value;
+    navigator.clipboard.writeText(machineId);
+    showToast('Machine ID disalin ke clipboard', 'success');
+  });
+}
+
+// ============================================================
 // Update & About
 // ============================================================
 function setUpdateStatus(message, status = 'idle') {
@@ -1364,6 +1471,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Attach listeners
   initWaWebviewListeners();
   initUpdaterListeners();
+  initLicenseListeners();
+  await checkLicenseStatus();
+  
   refreshAboutTab();
   refreshUpdateTab();
 

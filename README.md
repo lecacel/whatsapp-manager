@@ -1,111 +1,123 @@
 # WA Manager - WhatsApp Multi Account Desktop App
 
-Aplikasi Desktop Windows untuk mengelola banyak akun WhatsApp sekaligus, dilengkapi dengan fitur Broadcast, Warmer, Auto Reply, dan AI Customer Service menggunakan Gemini.
+WA Manager adalah aplikasi desktop Windows untuk mengelola banyak akun WhatsApp dalam satu tempat. Aplikasi ini membantu operasional pesan, broadcast, pemanasan akun, auto reply, dan customer service berbasis AI.
 
 ## Fitur Utama
 
-1. **📱 Multi-Account WhatsApp**: Hubungkan banyak nomor WhatsApp sekaligus dalam 1 aplikasi menggunakan WhatsApp Web.
-2. **📢 Broadcast Pesan**: Kirim pesan massal dengan fitur delay/jeda waktu agar terhindar dari pemblokiran (anti-spam), bisa melampirkan file/gambar.
-3. **🔥 Account Warmer**: Fitur untuk saling berkirim pesan secara otomatis antar akun Anda sendiri untuk "menghangatkan" nomor baru agar terlihat aktif natural.
-4. **↩️ Auto Reply**: Balas pesan otomatis berdasarkan kata kunci tertentu.
-5. **🤖 AI Customer Service**: Terintegrasi dengan Google Gemini AI untuk membalas pesan pelanggan layaknya Customer Service sungguhan secara otomatis (Gratis menggunakan Gemini API).
+### 1. Multi-Account WhatsApp
+- Menghubungkan banyak akun WhatsApp dalam satu aplikasi.
+- Setiap akun memiliki sesi dan status koneksi masing-masing.
+- Mendukung scan QR Code melalui WhatsApp Web.
+
+### 2. Chat Manager
+- Melihat daftar chat dan riwayat pesan.
+- Mengirim pesan teks ke kontak atau nomor tujuan.
+- Mendukung pengiriman pesan dengan media/lampiran.
+
+### 3. Broadcast Pesan
+- Mengirim pesan massal ke banyak nomor tujuan.
+- Mendukung pengaturan delay/jeda antar pesan.
+- Membantu pengiriman pesan agar lebih teratur dan tidak terlalu agresif.
+
+### 4. Account Warmer
+- Mengirim pesan otomatis antar akun WhatsApp yang terhubung.
+- Berguna untuk membantu akun baru terlihat lebih aktif secara natural.
+- Mendukung pengaturan pasangan akun dan interval pengiriman.
+
+### 5. Auto Reply
+- Membalas pesan masuk secara otomatis berdasarkan kata kunci.
+- Mendukung beberapa aturan/rule balasan.
+- Dapat diaktifkan per akun WhatsApp.
+
+### 6. AI Customer Service
+- Terintegrasi dengan Google Gemini AI.
+- Membalas pesan pelanggan secara otomatis berdasarkan prompt yang dikonfigurasi.
+- Dapat digunakan untuk simulasi customer service, FAQ, dan bantuan pelanggan.
+
+### 7. Serial Key / Lisensi Berjangka
+- Mendukung pembatasan penggunaan fitur premium menggunakan serial key.
+- Serial key memiliki masa aktif tertentu.
+- Lisensi digunakan untuk mengontrol siapa yang dapat memakai fitur premium aplikasi.
+
+### 8. Auto Update
+- Mendukung pengecekan update aplikasi.
+- Menampilkan informasi versi aplikasi.
+- Mendukung proses download dan install update jika update tersedia.
+
+## Fitur Premium
+
+Beberapa fitur aplikasi dapat dibatasi menggunakan sistem lisensi, antara lain:
+
+- Broadcast
+- Account Warmer
+- Auto Reply
+- AI Customer Service
+
+Fitur dasar seperti manajemen akun, chat, informasi aplikasi, update, dan halaman lisensi tetap dapat diakses.
+
+## Spesifikasi Aplikasi
+
+- Platform: Windows Desktop
+- Framework: Electron.js
+- WhatsApp Engine: whatsapp-web.js
+- AI Integration: Google Gemini AI
+- Penyimpanan lokal: Electron Store
+- Build Installer: electron-builder
+- Tipe aplikasi: Desktop app multi-account WhatsApp manager
 
 ## Persyaratan Sistem
+
 - Windows 10 / 11
-- Node.js (Versi 18 atau lebih baru)
-- RAM Minimal 4GB (Disarankan 8GB untuk multi-akun yang banyak)
+- RAM minimal 4GB, disarankan 8GB atau lebih untuk banyak akun
+- Koneksi internet stabil
+- WhatsApp aktif pada perangkat pengguna
+- API Key Gemini diperlukan jika ingin menggunakan fitur AI Customer Service
 
----
+## Cara Menjalankan dari Source Code
 
-## Step-by-Step Cara Build menjadi Aplikasi Desktop (Windows .exe)
+Install dependency:
 
-Ikuti langkah-langkah berikut untuk menjalankan dan mengubah source code ini menjadi aplikasi Windows yang bisa di-install (`.exe`).
-
-### Langkah 1: Buka Terminal / Command Prompt
-Buka folder `whatsapp-manager` ini di Visual Studio Code, lalu buka terminal (Ctrl + `).
-Atau buka Command Prompt (cmd) dan arahkan ke folder ini:
-```bash
-cd path/ke/folder/whatsapp-manager
-```
-
-### Langkah 2: Install Dependencies (Library yang dibutuhkan)
-Jalankan perintah ini untuk mengunduh semua library yang diperlukan (seperti electron, whatsapp-web.js, puppeteer, dll):
 ```bash
 npm install
 ```
-*(Tunggu hingga proses instalasi selesai, mungkin butuh beberapa menit tergantung koneksi internet).*
 
-### Langkah 3: Jalankan Aplikasi Mode Development (Uji Coba)
-Sebelum di-build, pastikan aplikasi berjalan normal dengan perintah:
+Jalankan aplikasi mode development:
+
 ```bash
 npm run dev
 ```
-atau
+
+Atau:
+
 ```bash
 npm start
 ```
-Aplikasi WA Manager akan terbuka. Anda bisa mencoba menambahkan akun dengan scan QR code.
 
-### Langkah 4: Build Aplikasi menjadi File Installer (.exe)
-Jika semuanya sudah berjalan normal, sekarang kita buat installer Windows-nya.
-Jalankan perintah berikut:
+## Cara Build Installer Windows
+
+Jalankan perintah:
+
 ```bash
 npm run build
 ```
 
-**Catatan selama proses build:**
-- Proses ini membutuhkan koneksi internet untuk mengunduh electron-builder binaries.
-- Tunggu hingga proses selesai (bisa 2-5 menit).
-- Jika berhasil, Anda akan menemukan folder baru bernama `dist/`.
+Jika berhasil, file installer akan tersedia di folder `dist/`.
 
-### Langkah 5: Instalasi
-Buka folder `dist/` di dalam folder project ini.
-Anda akan menemukan file bernama **`WA Manager Setup 1.0.0.exe`**.
-File inilah aplikasi desktop Anda. Silakan double-click untuk menginstallnya di komputer Anda atau bagikan ke komputer lain.
+## Catatan Penggunaan
 
----
+- Gunakan fitur broadcast dengan jeda pengiriman yang wajar.
+- Hindari mengirim pesan massal secara agresif.
+- Pastikan akun WhatsApp tidak digunakan bersamaan di WhatsApp Web lain agar sesi tidak mudah terputus.
+- Untuk fitur AI Customer Service, pastikan API Key Gemini valid dan prompt sudah dikonfigurasi dengan benar.
 
-## Panduan Penggunaan Fitur
+## Troubleshooting Umum
 
-### 1. Menambahkan Akun WhatsApp
-- Buka tab **Akun**
-- Klik **Tambah Akun**
-- Masukkan Nama Akun dan ID Akun
-- Scan QR Code yang muncul menggunakan WhatsApp di HP Anda (Pilih "Tautkan Perangkat")
-- Tunggu status berubah menjadi "Terhubung"
-
-### 2. Broadcast
-- Buka tab **Broadcast**
-- Pilih akun pengirim (yang sudah terhubung)
-- Masukkan daftar nomor tujuan (1 baris = 1 nomor, contoh: 08123456789 atau 628123456789)
-- Ketik isi pesan. Opsional: Tambahkan file lampiran.
-- Atur delay (Jeda). Semakin lama jeda, semakin aman dari blokir WhatsApp. (Saran: 10-30 detik).
-- Klik **Mulai Broadcast**.
-
-### 3. Account Warmer (Pemanasan Akun Baru)
-- Syarat: Harus ada **Minimal 2 Akun** yang terhubung di aplikasi.
-- Buka tab **Warmer**.
-- Pilih pasangan akun yang akan saling chat otomatis.
-- Tentukan rentang waktu chat (misal 1 - 5 menit). Aplikasi akan mengirim chat secara random di rentang waktu tersebut.
-- Klik **Mulai Warmer**.
-- *Biarkan fitur ini berjalan 1-3 hari pada nomor baru sebelum digunakan untuk Broadcast massal.*
-
-### 4. AI Customer Service
-- Anda wajib memiliki **API Key Gemini** (Gratis).
-- Dapatkan API Key di: [Google AI Studio](https://aistudio.google.com/app/apikey)
-- Buka tab **AI CS**, paste API Key tersebut ke kolom yang disediakan.
-- Atur *System Prompt*, contoh: `"Kamu adalah Budi, CS dari Toko Sepatu Jaya. Jawab dengan ramah, singkat, dan berbahasa Indonesia."`
-- Klik **Simpan Konfigurasi**.
-- Aktifkan toggle / switch pada akun WhatsApp yang ingin dipasangkan AI ini.
-- AI akan membalas otomatis setiap pesan masuk (kecuali pesan grup).
+- **QR Code tidak muncul:** Pastikan koneksi internet stabil.
+- **Akun sering terputus:** Jangan membuka WhatsApp Web lain dengan akun yang sama.
+- **Broadcast gagal:** Pastikan akun pengirim sudah terhubung dan nomor tujuan valid.
+- **AI tidak membalas:** Pastikan API Key Gemini sudah benar dan fitur AI aktif pada akun terkait.
+- **Aplikasi gagal dijalankan:** Pastikan dependency sudah terinstall dengan `npm install`.
 
 ---
 
-## Troubleshooting (Masalah Umum)
-
-- **QR Code tidak muncul / Loading terus:** Pastikan koneksi internet stabil. Terkadang proses download puppeteer Chromium saat pertama kali jalan butuh waktu lama.
-- **Akun sering terputus:** Jangan buka WhatsApp Web / WhatsApp Desktop bawaan secara bersamaan dengan aplikasi ini, karena WhatsApp membatasi jumlah perangkat bertaut yang online bersamaan.
-- **Error Build (npm run build):** Pastikan Anda menjalankan perintah ini di Command Prompt biasa (bukan PowerShell dengan Execution Policy terbatas). Jika gagal, coba hapus folder `node_modules` dan jalankan `npm install` lagi.
-
-***
-*Dibuat menggunakan Electron.js & whatsapp-web.js*
+Dibuat menggunakan Electron.js dan whatsapp-web.js.

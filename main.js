@@ -28,6 +28,7 @@ const BroadcastManager = require('./src/modules/broadcast-manager');
 const WarmerManager = require('./src/modules/warmer-manager');
 const AutoReplyManager = require('./src/modules/autoreply-manager');
 const AIManager = require('./src/modules/ai-manager');
+const SerialKeyManager = require('./src/modules/serial-key-manager');
 
 // Initialize managers
 const waManager = new WhatsAppManager();
@@ -35,6 +36,29 @@ const broadcastManager = new BroadcastManager(waManager);
 const warmerManager = new WarmerManager(waManager);
 const autoReplyManager = new AutoReplyManager(waManager);
 const aiManager = new AIManager(waManager);
+
+function getLicenseStatus() {
+  return SerialKeyManager.checkLicense();
+}
+
+function requireActiveLicense() {
+  const license = getLicenseStatus();
+  if (!license.active) {
+    const error = license.error || 'Fitur ini memerlukan Serial Key aktif.';
+    const err = new Error(error);
+    err.code = 'LICENSE_REQUIRED';
+    throw err;
+  }
+  return license;
+}
+
+function licenseErrorResponse(err) {
+  return {
+    success: false,
+    error: err?.message || 'Fitur ini memerlukan Serial Key aktif.',
+    code: err?.code || 'LICENSE_REQUIRED'
+  };
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -69,8 +93,7 @@ function createWindow() {
           partition: `persist:wa-webview-popup-${Date.now()}`,
           contextIsolation: true,
           nodeIntegration: false,
-          webSecurity: true,
-          devTools: false
+          webSecurity: true
         }
       }
     };
@@ -111,8 +134,11 @@ function setupManagerEvents() {
 
   waManager.on('message', (accountId, message) => {
     if (mainWindow) mainWindow.webContents.send('wa:message', { accountId, message });
-    autoReplyManager.handleMessage(accountId, message);
-    aiManager.handleMessage(accountId, message);
+
+    if (getLicenseStatus().active) {
+      autoReplyManager.handleMessage(accountId, message);
+      aiManager.handleMessage(accountId, message);
+    }
   });
 
   waManager.on('auth_failure', (accountId) => {
@@ -231,10 +257,13 @@ ipcMain.handle('chat:download-media', async (event, { accountId, messageId }) =>
 
 ipcMain.handle('broadcast:start', async (event, params) => {
   try {
+    requireActiveLicense();
     await broadcastManager.startBroadcast(params);
     return { success: true };
   } catch (err) {
-    return { success: false, error: err.message };
+    return err?.code === 'LICENSE_REQUIRED'
+      ? licenseErrorResponse(err)
+      : { success: false, error: err.message };
   }
 });
 
@@ -247,10 +276,13 @@ ipcMain.handle('broadcast:get-list', async () => broadcastManager.getBroadcastLi
 
 ipcMain.handle('warmer:start', async (event, params) => {
   try {
+    requireActiveLicense();
     warmerManager.startWarmer(params);
     return { success: true };
   } catch (err) {
-    return { success: false, error: err.message };
+    return err?.code === 'LICENSE_REQUIRED'
+      ? licenseErrorResponse(err)
+      : { success: false, error: err.message };
   }
 });
 
@@ -266,23 +298,43 @@ ipcMain.handle('warmer:get-log', async () => warmerManager.getLog());
 ipcMain.handle('autoreply:get-rules', async () => autoReplyManager.getRules());
 
 ipcMain.handle('autoreply:add-rule', async (event, rule) => {
-  autoReplyManager.addRule(rule);
-  return { success: true };
+  try {
+    requireActiveLicense();
+    autoReplyManager.addRule(rule);
+    return { success: true };
+  } catch (err) {
+    return err?.code === 'LICENSE_REQUIRED' ? licenseErrorResponse(err) : { success: false, error: err.message };
+  }
 });
 
 ipcMain.handle('autoreply:update-rule', async (event, rule) => {
-  autoReplyManager.updateRule(rule);
-  return { success: true };
+  try {
+    requireActiveLicense();
+    autoReplyManager.updateRule(rule);
+    return { success: true };
+  } catch (err) {
+    return err?.code === 'LICENSE_REQUIRED' ? licenseErrorResponse(err) : { success: false, error: err.message };
+  }
 });
 
 ipcMain.handle('autoreply:delete-rule', async (event, { ruleId }) => {
-  autoReplyManager.deleteRule(ruleId);
-  return { success: true };
+  try {
+    requireActiveLicense();
+    autoReplyManager.deleteRule(ruleId);
+    return { success: true };
+  } catch (err) {
+    return err?.code === 'LICENSE_REQUIRED' ? licenseErrorResponse(err) : { success: false, error: err.message };
+  }
 });
 
 ipcMain.handle('autoreply:toggle', async (event, { accountId, enabled }) => {
-  autoReplyManager.toggleForAccount(accountId, enabled);
-  return { success: true };
+  try {
+    requireActiveLicense();
+    autoReplyManager.toggleForAccount(accountId, enabled);
+    return { success: true };
+  } catch (err) {
+    return err?.code === 'LICENSE_REQUIRED' ? licenseErrorResponse(err) : { success: false, error: err.message };
+  }
 });
 
 ipcMain.handle('autoreply:get-enabled-accounts', async () => autoReplyManager.getEnabledAccounts());
@@ -290,15 +342,25 @@ ipcMain.handle('autoreply:get-enabled-accounts', async () => autoReplyManager.ge
 ipcMain.handle('autoreply:get-log', async () => autoReplyManager.getLog());
 
 ipcMain.handle('ai:set-config', async (event, config) => {
-  aiManager.setConfig(config);
-  return { success: true };
+  try {
+    requireActiveLicense();
+    aiManager.setConfig(config);
+    return { success: true };
+  } catch (err) {
+    return err?.code === 'LICENSE_REQUIRED' ? licenseErrorResponse(err) : { success: false, error: err.message };
+  }
 });
 
 ipcMain.handle('ai:get-config', async () => aiManager.getConfig());
 
 ipcMain.handle('ai:toggle', async (event, { accountId, enabled }) => {
-  aiManager.toggleForAccount(accountId, enabled);
-  return { success: true };
+  try {
+    requireActiveLicense();
+    aiManager.toggleForAccount(accountId, enabled);
+    return { success: true };
+  } catch (err) {
+    return err?.code === 'LICENSE_REQUIRED' ? licenseErrorResponse(err) : { success: false, error: err.message };
+  }
 });
 
 ipcMain.handle('ai:get-enabled-accounts', async () => aiManager.getEnabledAccounts());
@@ -307,10 +369,13 @@ ipcMain.handle('ai:get-log', async () => aiManager.getLog());
 
 ipcMain.handle('ai:test', async (event, { message }) => {
   try {
+    requireActiveLicense();
     const response = await aiManager.testAI(message);
     return { success: true, response };
   } catch (err) {
-    return { success: false, error: err.message };
+    return err?.code === 'LICENSE_REQUIRED'
+      ? licenseErrorResponse(err)
+      : { success: false, error: err.message };
   }
 });
 
@@ -332,6 +397,37 @@ ipcMain.handle('store:get', async (event, key) => store.get(key));
 ipcMain.handle('store:set', async (event, { key, value }) => {
   store.set(key, value);
   return { success: true };
+});
+
+// ============================================================
+// Serial Key / License IPC Handlers
+// ============================================================
+ipcMain.handle('license:get-machine-id', async () => {
+  return { success: true, machineId: SerialKeyManager.getMachineId() };
+});
+
+ipcMain.handle('license:activate', async (event, { key }) => {
+  const result = SerialKeyManager.activateKey(key);
+  return result;
+});
+
+ipcMain.handle('license:check', async () => {
+  const result = SerialKeyManager.checkLicense();
+  return result;
+});
+
+ipcMain.handle('license:deactivate', async () => {
+  const result = SerialKeyManager.deactivateLicense();
+  return result;
+});
+
+ipcMain.handle('license:generate-key', async (event, { machineId, durationDays }) => {
+  try {
+    const result = SerialKeyManager.generateKey(machineId, durationDays);
+    return { success: true, ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 });
 
 // Auto-Updater Setup

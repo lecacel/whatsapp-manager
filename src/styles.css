@@ -207,6 +207,54 @@ body {
 }
 
 /* ============================================================
+   License / Serial Key
+   ============================================================ */
+.license-container {
+  max-width: 600px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.license-status-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.license-status-box .status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.license-details {
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.license-details p {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.input-group {
+  display: flex;
+  gap: 8px;
+}
+
+.input-group .form-control {
+  flex: 1;
+}
+
+/* ============================================================
    WA Webview Multi Account
    ============================================================ */
 .wa-webview-shell {

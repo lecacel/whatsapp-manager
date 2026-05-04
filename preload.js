@@ -116,6 +116,16 @@ contextBridge.exposeInMainWorld('api', {
     removeListener: (channel) => ipcRenderer.removeAllListeners(`update:${channel}`)
   },
 
+   // ============================================================
+   // License / Serial Key
+   // ============================================================
+   license: {
+     getMachineId: () => ipcRenderer.invoke('license:get-machine-id'),
+     activate: (params) => ipcRenderer.invoke('license:activate', params),
+     check: () => ipcRenderer.invoke('license:check'),
+     deactivate: () => ipcRenderer.invoke('license:deactivate')
+   },
+
   // ============================================================
   // App Info
   // ============================================================

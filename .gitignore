@@ -5,3 +5,5 @@ dist/
 npm-debug.log*
 .DS_Store
 .env
+tools/
+scripts/generate-serial-key.js

@@ -47,6 +47,10 @@
           <span class="nav-icon">🔄</span>
           <span class="nav-label">Update</span>
         </button>
+        <button class="nav-item" data-tab="license">
+          <span class="nav-icon">🔑</span>
+          <span class="nav-label">Serial Key</span>
+        </button>
         <button class="nav-item" data-tab="about">
           <span class="nav-icon">ℹ️</span>
           <span class="nav-label">About</span>
@@ -509,6 +513,51 @@
             <button class="btn btn-primary" id="btnCheckUpdate">🔍 Cek Update</button>
             <button class="btn btn-success" id="btnDownloadUpdate" disabled>⬇️ Download Update</button>
             <button class="btn btn-warning" id="btnInstallRestart" disabled>🔄 Install & Restart</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- TAB: License / Serial Key -->
+      <!-- ============================================================ -->
+      <div class="tab-content" id="tab-license">
+        <div class="content-header">
+          <h1>🔑 Aktivasi Serial Key</h1>
+        </div>
+
+        <div class="license-container">
+          <div class="card">
+            <h3>Status Lisensi</h3>
+            <div class="license-status-box" id="licenseStatusBox">
+              <div class="status-indicator">
+                <span class="status-dot inactive" id="licenseDot"></span>
+                <span id="licenseStatusText">Memeriksa status...</span>
+              </div>
+              <div class="license-details" id="licenseDetails" style="display: none;">
+                <p><strong>Masa Aktif:</strong> <span id="licenseExpiry">--</span></p>
+                <p><strong>Sisa Hari:</strong> <span id="licenseDaysLeft">--</span> hari</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Aktivasi Aplikasi</h3>
+            <p class="card-description">
+              Masukkan Serial Key Anda untuk mengaktifkan fitur lengkap aplikasi. 
+              Lisensi terkunci pada Machine ID Anda.
+            </p>
+            <div class="form-group">
+              <label>Your Machine ID (Berikan ID ini ke admin)</label>
+              <div class="input-group">
+                <input type="text" id="machineIdDisplay" class="form-control" readonly>
+                <button class="btn btn-secondary" id="btnCopyMachineId">Salin</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Serial Key</label>
+              <input type="text" id="serialKeyInput" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" class="form-control">
+            </div>
+            <button class="btn btn-primary" id="btnActivateLicense">🚀 Aktifkan Sekarang</button>
           </div>
         </div>
       </div>
