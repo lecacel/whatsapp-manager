@@ -73,36 +73,6 @@ Fitur dasar seperti manajemen akun, chat, informasi aplikasi, update, dan halama
 - WhatsApp aktif pada perangkat pengguna
 - API Key Gemini diperlukan jika ingin menggunakan fitur AI Customer Service
 
-## Cara Menjalankan dari Source Code
-
-Install dependency:
-
-```bash
-npm install
-```
-
-Jalankan aplikasi mode development:
-
-```bash
-npm run dev
-```
-
-Atau:
-
-```bash
-npm start
-```
-
-## Cara Build Installer Windows
-
-Jalankan perintah:
-
-```bash
-npm run build
-```
-
-Jika berhasil, file installer akan tersedia di folder `dist/`.
-
 ## Catatan Penggunaan
 
 - Gunakan fitur broadcast dengan jeda pengiriman yang wajar.
@@ -120,4 +90,4 @@ Jika berhasil, file installer akan tersedia di folder `dist/`.
 
 ---
 
-Dibuat menggunakan Electron.js dan whatsapp-web.js.
+Feel free to contact at Telegram : @lecacel

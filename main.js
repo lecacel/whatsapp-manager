@@ -22,6 +22,21 @@ const store = new Store();
 let mainWindow;
 let tray;
 
+function getAppIcon() {
+  const iconPath = path.join(__dirname, 'assets', 'icon.png');
+  const fileIcon = nativeImage.createFromPath(iconPath);
+  if (!fileIcon.isEmpty()) return fileIcon;
+
+  const fallbackSvg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+      <rect width="256" height="256" rx="64" fill="#061014"/>
+      <text x="128" y="160" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="112" font-weight="800" fill="#ffffff">W</text>
+      <circle cx="196" cy="62" r="24" fill="#25D366"/>
+    </svg>
+  `;
+  return nativeImage.createFromDataURL(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(fallbackSvg)}`);
+}
+
 // Import managers
 const WhatsAppManager = require('./src/modules/whatsapp-manager');
 const BroadcastManager = require('./src/modules/broadcast-manager');
@@ -75,7 +90,7 @@ function createWindow() {
       webviewTag: true,
       devTools: false
     },
-    icon: path.join(__dirname, 'assets', 'icon.png'),
+    icon: getAppIcon(),
     title: 'WA Manager - WhatsApp Multi Account',
     show: false,
     backgroundColor: '#0f172a'
@@ -560,9 +575,8 @@ function isAllowedWhatsAppWebviewUrl(url) {
 
 function createTray() {
   try {
-    const iconPath = path.join(__dirname, 'assets', 'icon.png');
-    const icon = nativeImage.createFromPath(iconPath);
-    tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
+    const icon = getAppIcon().resize({ width: 16, height: 16 });
+    tray = new Tray(icon);
     const contextMenu = Menu.buildFromTemplate([
       { label: 'WA Manager', enabled: false },
       { type: 'separator' },

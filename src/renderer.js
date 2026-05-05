@@ -814,6 +814,8 @@ function getWaWebviewState() {
     tabs: waWebviewTabs.map((t) => ({
       id: t.id,
       title: t.title,
+      customTitle: t.customTitle || '',
+      unreadCount: t.unreadCount || 0,
       partition: t.partition
     })),
     archivedTabs: archivedWaWebviewTabs,
@@ -856,6 +858,8 @@ async function loadWaWebviewState() {
         createWaWebviewTab({
           id: tab.id,
           title: tab.title || `Akun ${index + 1}`,
+          customTitle: tab.customTitle || '',
+          unreadCount: tab.unreadCount || 0,
           partition: tab.partition,
           save: false,
           activate: false
@@ -934,24 +938,48 @@ function createWaWebviewTab(options = {}) {
     });
     
     webview.addEventListener('page-title-updated', (event) => {
-      let cleanTitle = String(event.title || '').replace('WhatsApp', '').replace('(', '').replace(')', '').trim();
-      // Remove unread count numbers like "1 " from title
-      cleanTitle = cleanTitle.replace(/^\d+\s+/, '');
-      
-      if (cleanTitle && cleanTitle.length > 0 && cleanTitle.length <= 30) {
-        const tab = waWebviewTabs.find((item) => item.id === id);
-        if (tab && tab.title !== cleanTitle) {
-          tab.title = cleanTitle;
-          renderWaWebviewTabs();
-          saveWaWebviewState();
-        }
+      const rawTitle = String(event.title || '').trim();
+      const unreadMatch = rawTitle.match(/^\((\d+)\)/);
+      const unreadCount = unreadMatch ? Number(unreadMatch[1]) : 0;
+      let cleanTitle = rawTitle
+        .replace(/^\(\d+\)\s*/, '')
+        .replace('WhatsApp', '')
+        .replace('(', '')
+        .replace(')', '')
+        .trim();
+
+      const tab = waWebviewTabs.find((item) => item.id === id);
+      if (!tab) return;
+
+      let changed = false;
+      if (tab.unreadCount !== unreadCount) {
+        tab.unreadCount = unreadCount;
+        changed = true;
+      }
+
+      if (cleanTitle && cleanTitle.length > 0 && cleanTitle.length <= 30 && tab.title !== cleanTitle) {
+        tab.title = cleanTitle;
+        changed = true;
+      }
+
+      if (changed) {
+        renderWaWebviewTabs();
+        saveWaWebviewState();
       }
     });
 
     stage.appendChild(webview);
     webview.setAttribute('src', WA_WEBVIEW_URL);
 
-    waWebviewTabs.push({ id, title, partition, webview, status: 'loading' });
+    waWebviewTabs.push({
+      id,
+      title,
+      customTitle: options.customTitle || archivedTab?.customTitle || '',
+      unreadCount: options.unreadCount || archivedTab?.unreadCount || 0,
+      partition,
+      webview,
+      status: 'loading'
+    });
     renderWaWebviewTabs();
 
     if (options.activate !== false) {
@@ -971,13 +999,22 @@ function renderWaWebviewTabs() {
   const tabsContainer = document.getElementById('waWebviewTabs');
   if (!tabsContainer) return;
 
-  tabsContainer.innerHTML = waWebviewTabs.map((tab, index) => `
-    <button class="wa-webview-tab ${tab.id === activeWaWebviewId ? 'active' : ''}" type="button" onclick="activateWaWebviewTab('${escapeHtml(tab.id)}')">
-      <span class="wa-webview-tab-status ${escapeHtml(tab.status || 'ready')}"></span>
-      <span class="wa-webview-tab-title">${escapeHtml(tab.title || `Akun ${index + 1}`)}</span>
-      <span class="wa-webview-tab-close" title="Tutup tab" onclick="event.stopPropagation(); closeWaWebviewTab('${escapeHtml(tab.id)}')">&times;</span>
-    </button>
-  `).join('');
+  tabsContainer.innerHTML = waWebviewTabs.map((tab, index) => {
+    const displayTitle = tab.customTitle || tab.title || `Akun ${index + 1}`;
+    const unreadBadge = tab.unreadCount > 0
+      ? `<span class="wa-webview-tab-unread">${escapeHtml(tab.unreadCount)}</span>`
+      : '';
+
+    return `
+      <button class="wa-webview-tab ${tab.id === activeWaWebviewId ? 'active' : ''}" type="button" title="Double click untuk rename tab" onclick="activateWaWebviewTab('${escapeHtml(tab.id)}')" ondblclick="event.stopPropagation(); renameWaWebviewTab('${escapeHtml(tab.id)}')">
+        <span class="wa-webview-tab-status ${escapeHtml(tab.status || 'ready')}"></span>
+        ${unreadBadge}
+        <span class="wa-webview-tab-title">${escapeHtml(displayTitle)}</span>
+        <span class="wa-webview-tab-rename" title="Rename tab" onclick="event.stopPropagation(); renameWaWebviewTab('${escapeHtml(tab.id)}')">✎</span>
+        <span class="wa-webview-tab-close" title="Tutup tab" onclick="event.stopPropagation(); closeWaWebviewTab('${escapeHtml(tab.id)}')">&times;</span>
+      </button>
+    `;
+  }).join('');
 
   const empty = document.getElementById('waWebviewEmpty');
   if (empty) empty.style.display = waWebviewTabs.length ? 'none' : 'flex';
@@ -1009,6 +1046,21 @@ function activateWaWebviewTab(id, shouldSave = true) {
 }
 window.activateWaWebviewTab = activateWaWebviewTab;
 
+function renameWaWebviewTab(id) {
+  const tab = waWebviewTabs.find((item) => item.id === id);
+  if (!tab) return;
+
+  const currentName = tab.customTitle || tab.title || '';
+  const nextName = prompt('Nama tab WhatsApp:', currentName);
+  if (nextName === null) return;
+
+  const trimmed = nextName.trim().slice(0, 40);
+  tab.customTitle = trimmed;
+  renderWaWebviewTabs();
+  saveWaWebviewState();
+}
+window.renameWaWebviewTab = renameWaWebviewTab;
+
 function closeWaWebviewTab(id) {
   const index = waWebviewTabs.findIndex((tab) => tab.id === id);
   if (index === -1) return;
@@ -1019,6 +1071,8 @@ function closeWaWebviewTab(id) {
   if (removed.partition) {
     archivedWaWebviewTabs.push({
       title: removed.title,
+      customTitle: removed.customTitle || '',
+      unreadCount: removed.unreadCount || 0,
       partition: removed.partition
     });
   }
