@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-manager",
-  "version": "1.0.12",
+  "version": "1.0.14",
   "description": "WhatsApp Multi-Account Manager Desktop App",
   "main": "main.js",
   "scripts": {

@@ -57,6 +57,14 @@ function closeAllModals(exceptId = null) {
 }
 
 function setWebviewsInteractive(interactive) {
+  if (!interactive) {
+    // Cancel all pending webview focus timeouts so they cannot steal focus back from a modal input
+    Object.keys(waPendingFocusTimeouts).forEach((key) => {
+      clearTimeout(waPendingFocusTimeouts[key]);
+      delete waPendingFocusTimeouts[key];
+    });
+  }
+
   document.querySelectorAll('webview').forEach((webview) => {
     if (interactive) {
       webview.style.pointerEvents = '';
@@ -77,6 +85,10 @@ function setWebviewsInteractive(interactive) {
   });
 
   if (!interactive) {
+    // Ask the main process to focus the renderer window so keyboard events reach the modal
+    if (window.api?.app?.focusWindow) {
+      window.api.app.focusWindow().catch(() => {});
+    }
     try { window.focus(); } catch (e) {}
     try { document.body.focus(); } catch (e) {}
   }
@@ -120,6 +132,7 @@ function openModal(id) {
     forceInputFocus(modal, true);
     setTimeout(() => forceInputFocus(modal), 80);
     setTimeout(() => forceInputFocus(modal), 250);
+    setTimeout(() => forceInputFocus(modal), 500);
   });
 }
 

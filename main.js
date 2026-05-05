@@ -198,6 +198,14 @@ function setupManagerEvents() {
 }
 
 // IPC Handlers
+ipcMain.handle('app:focus-window', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.focus();
+    mainWindow.webContents.focus();
+  }
+  return true;
+});
+
 ipcMain.handle('wa:add-account', async (event, { accountId, name }) => {
   try {
     await waManager.addAccount(accountId, name);
