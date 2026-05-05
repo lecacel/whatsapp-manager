@@ -231,24 +231,31 @@ ipcMain.handle('wa:logout', async (event, { accountId }) => {
 
 ipcMain.handle('wa:get-contacts', async (event, { accountId }) => {
   try {
+    requireActiveLicense();
     const contacts = await waManager.getContacts(accountId);
     return { success: true, contacts };
   } catch (err) {
-    return { success: false, error: err.message, contacts: [] };
+    return err?.code === 'LICENSE_REQUIRED'
+      ? { ...licenseErrorResponse(err), contacts: [] }
+      : { success: false, error: err.message, contacts: [] };
   }
 });
 
 ipcMain.handle('wa:get-all-chats', async (event, { accountId }) => {
   try {
+    requireActiveLicense();
     const chats = await waManager.getAllChats(accountId);
     return { success: true, chats };
   } catch (err) {
-    return { success: false, error: err.message, chats: [] };
+    return err?.code === 'LICENSE_REQUIRED'
+      ? { ...licenseErrorResponse(err), chats: [] }
+      : { success: false, error: err.message, chats: [] };
   }
 });
 
 ipcMain.handle('wa:send-message', async (event, { accountId, to, message, mediaPath }) => {
   try {
+    requireActiveLicense();
     if (mediaPath) {
       await waManager.sendMessageWithMedia(accountId, to, message || '', mediaPath);
     } else {
@@ -256,25 +263,33 @@ ipcMain.handle('wa:send-message', async (event, { accountId, to, message, mediaP
     }
     return { success: true };
   } catch (err) {
-    return { success: false, error: err.message };
+    return err?.code === 'LICENSE_REQUIRED'
+      ? licenseErrorResponse(err)
+      : { success: false, error: err.message };
   }
 });
 
 ipcMain.handle('chat:get-messages', async (event, { accountId, chatId, limit }) => {
   try {
+    requireActiveLicense();
     const messages = await waManager.getChatMessages(accountId, chatId, limit || 100);
     return { success: true, messages };
   } catch (err) {
-    return { success: false, error: err.message, messages: [] };
+    return err?.code === 'LICENSE_REQUIRED'
+      ? { ...licenseErrorResponse(err), messages: [] }
+      : { success: false, error: err.message, messages: [] };
   }
 });
 
 ipcMain.handle('chat:download-media', async (event, { accountId, messageId }) => {
   try {
+    requireActiveLicense();
     const media = await waManager.downloadMedia(accountId, messageId);
     return { success: !!media, media };
   } catch (err) {
-    return { success: false, error: err.message, media: null };
+    return err?.code === 'LICENSE_REQUIRED'
+      ? { ...licenseErrorResponse(err), media: null }
+      : { success: false, error: err.message, media: null };
   }
 });
 
@@ -415,11 +430,50 @@ ipcMain.handle('dialog:open-file', async (event, options) => {
   return result;
 });
 
-ipcMain.handle('store:get', async (event, key) => store.get(key));
+const ALLOWED_STORE_KEYS = [
+  'custom_notification_sound',
+  'wa_webview_tabs',
+  'ai_config',
+  'auto_reply_rules',
+  'enabled_autoreply_accounts',
+  'enabled_ai_accounts'
+];
+
+ipcMain.handle('store:get', async (event, key) => {
+  // Allow reading license status via specific IPC, but keep generic store:get for others
+  if (key === 'license') return null; // Force use of license:check
+  return store.get(key);
+});
 
 ipcMain.handle('store:set', async (event, { key, value }) => {
+  if (!ALLOWED_STORE_KEYS.includes(key)) {
+    console.error(`[Security] Unauthorized attempt to set store key: ${key}`);
+    return { success: false, error: 'Unauthorized key' };
+  }
   store.set(key, value);
   return { success: true };
+});
+
+ipcMain.handle('notification:play-sound', async (event, filePath) => {
+  try {
+    if (!filePath) return { success: false, error: 'No file path provided' };
+    
+    // In a real app, you'd use a library or native command to play the sound.
+    // For now, we'll send an event back to renderer to play it via Web Audio if it's the active sound,
+    // or just acknowledge the request. 
+    // Actually, playing from Main Process is safer for "direct notification" sounds.
+    // On Windows, we can use a small PowerShell command as a fallback if no library is present.
+    const { exec } = require('child_process');
+    const escapedPath = filePath.replace(/"/g, '`"');
+    
+    // PowerShell command to play sound
+    const command = `powershell -c "(New-Object Media.SoundPlayer '${escapedPath}').PlaySync()"`;
+    exec(command);
+    
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 });
 
 // ============================================================
@@ -465,7 +519,25 @@ function setupAutoUpdater() {
 
   autoUpdater.on('update-available', (info) => {
     console.log('[AutoUpdate] Update available:', info.version);
-    if (mainWindow) mainWindow.webContents.send('update:available', info);
+    if (mainWindow) {
+      mainWindow.webContents.send('update:available', info);
+      
+      // Send a direct notification to the user's screen
+      const { Notification } = require('electron');
+      if (Notification.isSupported()) {
+        const notification = new Notification({
+          title: 'Update Tersedia!',
+          body: `Versi baru v${info.version} sudah tersedia. Klik untuk melihat detail.`,
+          icon: getAppIcon('icon.png')
+        });
+        notification.show();
+        notification.on('click', () => {
+          mainWindow.show();
+          // We can't easily trigger switchTab from here without more complex IPC, 
+          // but showing the window is a good start.
+        });
+      }
+    }
   });
 
   autoUpdater.on('update-not-available', (info) => {

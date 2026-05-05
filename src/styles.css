@@ -1223,10 +1223,53 @@ select.form-control {
   border-color: var(--color-ink-deep);
 }
 
+.wa-webview-tab.has-new-message {
+  box-shadow: 0 0 0 2px rgba(229, 57, 53, 0.18);
+}
+
+.wa-webview-tab-red-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--rounded-circle);
+  background: var(--color-critical);
+  box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.16);
+  flex-shrink: 0;
+  animation: waRedDotPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes waRedDotPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.72);
+    opacity: 0.72;
+  }
+}
+
 .wa-webview-tab-title {
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.wa-webview-tab-sound {
+  max-width: 76px;
+  height: 24px;
+  padding: 0 18px 0 8px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--rounded-full);
+  background: var(--color-canvas);
+  color: var(--color-ink-deep);
+  font-size: 11px;
+  font-weight: 700;
+  outline: none;
+  cursor: pointer;
+}
+
+.wa-webview-tab.active .wa-webview-tab-sound {
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .wa-webview-tab-title-input {

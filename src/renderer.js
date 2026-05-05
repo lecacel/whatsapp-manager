@@ -18,6 +18,14 @@ let waWebviewCounter = 0;
 let waWebviewInitialized = false;
 let waPendingFocusTimeouts = {};
 let waIsRenamingTabId = null;
+const WA_NOTIFICATION_SOUNDS = {
+  bell: { label: 'Bell', frequency: 880, type: 'sine' },
+  chime: { label: 'Chime', frequency: 660, type: 'triangle' },
+  ping: { label: 'Ping', frequency: 1046, type: 'sine' },
+  pop: { label: 'Pop', frequency: 520, type: 'square' },
+  alert: { label: 'Alert', frequency: 740, type: 'sawtooth' }
+};
+let waNotificationAudioContext = null;
 
 // Chat state
 let chatAccountId = null;
@@ -194,6 +202,11 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
 });
 
 async function switchTab(tab) {
+  if (!isLicenseActive && ['chat', 'broadcast', 'warmer', 'autoreply', 'ai'].includes(tab)) {
+    showToast('Fitur ini termasuk layanan premium. Silakan aktifkan Serial Key terlebih dahulu.', 'error');
+    tab = 'settings';
+  }
+
   currentTab = tab;
 
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
@@ -227,8 +240,7 @@ async function switchTab(tab) {
   if (tab === 'warmer') refreshWarmerTab();
   if (tab === 'autoreply') refreshAutoReplyTab();
   if (tab === 'ai') refreshAITab();
-  if (tab === 'license') refreshLicenseTab();
-  if (tab === 'update') refreshUpdateTab();
+  if (tab === 'settings') refreshSettingsTab();
   if (tab === 'about') refreshAboutTab();
 }
 
@@ -818,6 +830,8 @@ function getWaWebviewState() {
       title: t.title,
       customTitle: t.customTitle || '',
       unreadCount: t.unreadCount || 0,
+      hasNewMessage: !!t.hasNewMessage,
+      soundKey: t.soundKey || 'bell',
       partition: t.partition
     })),
     archivedTabs: archivedWaWebviewTabs,
@@ -862,6 +876,8 @@ async function loadWaWebviewState() {
           title: tab.title || `Akun ${index + 1}`,
           customTitle: tab.customTitle || '',
           unreadCount: tab.unreadCount || 0,
+          hasNewMessage: !!tab.hasNewMessage,
+          soundKey: tab.soundKey || 'bell',
           partition: tab.partition,
           save: false,
           activate: false
@@ -954,8 +970,14 @@ function createWaWebviewTab(options = {}) {
       if (!tab) return;
 
       let changed = false;
+      const previousUnreadCount = tab.unreadCount || 0;
       if (tab.unreadCount !== unreadCount) {
         tab.unreadCount = unreadCount;
+        tab.hasNewMessage = unreadCount > 0 && tab.id !== activeWaWebviewId;
+        if (unreadCount > previousUnreadCount && tab.id !== activeWaWebviewId) {
+          playWaTabNotificationSound(tab);
+          showToast(`Pesan baru di ${tab.customTitle || tab.title || 'tab WhatsApp'}`, 'info');
+        }
         changed = true;
       }
 
@@ -978,6 +1000,8 @@ function createWaWebviewTab(options = {}) {
       title,
       customTitle: options.customTitle || archivedTab?.customTitle || '',
       unreadCount: options.unreadCount || archivedTab?.unreadCount || 0,
+      hasNewMessage: !!(options.hasNewMessage || archivedTab?.hasNewMessage),
+      soundKey: options.soundKey || archivedTab?.soundKey || 'bell',
       partition,
       webview,
       status: 'loading'
@@ -1010,12 +1034,22 @@ function renderWaWebviewTabs() {
     const unreadBadge = tab.unreadCount > 0
       ? `<span class="wa-webview-tab-unread">${escapeHtml(tab.unreadCount)}</span>`
       : '';
+    const redDot = tab.hasNewMessage || tab.unreadCount > 0
+      ? '<span class="wa-webview-tab-red-dot" title="Ada pesan baru"></span>'
+      : '';
+    const soundOptions = Object.entries(WA_NOTIFICATION_SOUNDS).map(([key, sound]) => (
+      `<option value="${escapeHtml(key)}" ${tab.soundKey === key ? 'selected' : ''}>${escapeHtml(sound.label)}</option>`
+    )).join('');
 
     return `
-      <div class="wa-webview-tab ${tab.id === activeWaWebviewId ? 'active' : ''}" role="button" tabindex="0" data-tab-id="${escapeHtml(tab.id)}" title="Klik ikon pensil untuk edit nama tab" onclick="activateWaWebviewTab('${escapeHtml(tab.id)}')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activateWaWebviewTab('${escapeHtml(tab.id)}'); }">
+      <div class="wa-webview-tab ${tab.id === activeWaWebviewId ? 'active' : ''} ${redDot ? 'has-new-message' : ''}" role="button" tabindex="0" data-tab-id="${escapeHtml(tab.id)}" title="Klik ikon pensil untuk edit nama tab" onclick="activateWaWebviewTab('${escapeHtml(tab.id)}')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activateWaWebviewTab('${escapeHtml(tab.id)}'); }">
         <span class="wa-webview-tab-status ${escapeHtml(tab.status || 'ready')}"></span>
+        ${redDot}
         ${unreadBadge}
         <span class="wa-webview-tab-title">${escapeHtml(displayTitle)}</span>
+        <select class="wa-webview-tab-sound" title="Suara notifikasi tab ini" onclick="event.stopPropagation();" onchange="event.stopPropagation(); setWaWebviewTabSound('${escapeHtml(tab.id)}', this.value)">
+          ${soundOptions}
+        </select>
         <span class="wa-webview-tab-rename" role="button" tabindex="0" title="Edit nama tab" onclick="event.preventDefault(); event.stopPropagation(); startInlineRenameWaWebviewTab('${escapeHtml(tab.id)}')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); startInlineRenameWaWebviewTab('${escapeHtml(tab.id)}'); }">✎</span>
         <span class="wa-webview-tab-close" role="button" tabindex="0" title="Tutup tab" onclick="event.preventDefault(); event.stopPropagation(); closeWaWebviewTab('${escapeHtml(tab.id)}')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); closeWaWebviewTab('${escapeHtml(tab.id)}'); }">&times;</span>
       </div>
@@ -1037,6 +1071,8 @@ function activateWaWebviewTab(id, shouldSave = true) {
   }
 
   activeWaWebviewId = id;
+  selectedTab.hasNewMessage = false;
+  if (selectedTab.unreadCount > 0) selectedTab.unreadCount = 0;
   waWebviewTabs.forEach((tab) => {
     if (tab.webview) {
       if (tab.id === id) {
@@ -1171,6 +1207,8 @@ function closeWaWebviewTab(id) {
       title: removed.title,
       customTitle: removed.customTitle || '',
       unreadCount: removed.unreadCount || 0,
+      hasNewMessage: !!removed.hasNewMessage,
+      soundKey: removed.soundKey || 'bell',
       partition: removed.partition
     });
   }
@@ -1185,6 +1223,49 @@ function closeWaWebviewTab(id) {
   saveWaWebviewState();
 }
 window.closeWaWebviewTab = closeWaWebviewTab;
+
+function setWaWebviewTabSound(id, soundKey) {
+  const tab = waWebviewTabs.find((item) => item.id === id);
+  if (!tab || !WA_NOTIFICATION_SOUNDS[soundKey]) return;
+
+  tab.soundKey = soundKey;
+  playWaTabNotificationSound(tab);
+  saveWaWebviewState();
+  showToast(`Suara notifikasi "${tab.customTitle || tab.title || 'tab'}" diubah ke ${WA_NOTIFICATION_SOUNDS[soundKey].label}`, 'success');
+}
+window.setWaWebviewTabSound = setWaWebviewTabSound;
+
+function playWaTabNotificationSound(tab) {
+  try {
+    const sound = WA_NOTIFICATION_SOUNDS[tab?.soundKey] || WA_NOTIFICATION_SOUNDS.bell;
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+
+    if (!waNotificationAudioContext) waNotificationAudioContext = new AudioContext();
+    if (waNotificationAudioContext.state === 'suspended') {
+      waNotificationAudioContext.resume().catch(() => {});
+    }
+
+    const now = waNotificationAudioContext.currentTime;
+    const oscillator = waNotificationAudioContext.createOscillator();
+    const gain = waNotificationAudioContext.createGain();
+
+    oscillator.type = sound.type;
+    oscillator.frequency.setValueAtTime(sound.frequency, now);
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(120, sound.frequency * 0.72), now + 0.16);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.22, now + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+
+    oscillator.connect(gain);
+    gain.connect(waNotificationAudioContext.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.26);
+  } catch (err) {
+    console.warn('Gagal memainkan suara notifikasi tab:', err);
+  }
+}
 
 function updateWaWebviewStatus(id, status) {
   const tab = waWebviewTabs.find((item) => item.id === id);
@@ -1422,7 +1503,7 @@ async function checkLicenseStatus() {
 }
 
 function updateFeatureRestrictions() {
-  const restrictedTabs = ['broadcast', 'warmer', 'autoreply', 'ai'];
+  const restrictedTabs = ['chat', 'broadcast', 'warmer', 'autoreply', 'ai'];
   
   restrictedTabs.forEach(tab => {
     const navBtn = document.querySelector(`.nav-item[data-tab="${tab}"]`);
@@ -1439,15 +1520,98 @@ function updateFeatureRestrictions() {
     }
   });
 
-  // If current tab is restricted and license is inactive, switch to license tab
+  // If current tab is restricted and license is inactive, switch to settings tab
   if (!isLicenseActive && restrictedTabs.includes(currentTab)) {
     showToast('Akses dibatasi. Silakan aktifkan Serial Key.', 'error');
-    switchTab('license');
+    switchTab('settings');
   }
+}
+
+async function refreshSettingsTab() {
+  await checkLicenseStatus();
+  refreshUpdateTab();
+  refreshNotificationSoundPath();
 }
 
 async function refreshLicenseTab() {
   await checkLicenseStatus();
+}
+
+// ============================================================
+// Custom Notification Sound
+// ============================================================
+let customNotificationFilePath = null;
+
+async function refreshNotificationSoundPath() {
+  try {
+    const saved = await window.api.store.get('custom_notification_sound');
+    customNotificationFilePath = saved || null;
+    const pathInput = document.getElementById('notificationSoundPath');
+    if (pathInput) {
+      pathInput.value = customNotificationFilePath || '';
+    }
+  } catch (err) {
+    console.warn('Gagal memuat suara notifikasi custom:', err);
+  }
+}
+
+async function pickNotificationSound() {
+  try {
+    const result = await window.api.dialog.openFile({
+      properties: ['openFile'],
+      filters: [
+        { name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac', 'wma'] }
+      ]
+    });
+    if (result.canceled || !result.filePaths?.length) return;
+
+    const filePath = result.filePaths[0];
+    customNotificationFilePath = filePath;
+    await window.api.store.set('custom_notification_sound', filePath);
+
+    const pathInput = document.getElementById('notificationSoundPath');
+    if (pathInput) pathInput.value = filePath;
+
+    showToast('Suara notifikasi custom berhasil dipilih', 'success');
+  } catch (err) {
+    showToast(`Gagal memilih file: ${err.message}`, 'error');
+  }
+}
+
+async function testNotificationSound() {
+  if (!customNotificationFilePath) {
+    showToast('Belum ada suara custom yang dipilih', 'warning');
+    return;
+  }
+
+  try {
+    const result = await window.api.notification.playSound(customNotificationFilePath);
+    if (result?.success !== false) {
+      showToast('Memainkan suara notifikasi...', 'info');
+    } else {
+      showToast('Gagal memainkan suara: ' + (result.error || 'unknown error'), 'error');
+    }
+  } catch (err) {
+    showToast(`Gagal memainkan suara: ${err.message}`, 'error');
+  }
+}
+
+async function resetNotificationSound() {
+  customNotificationFilePath = null;
+  await window.api.store.set('custom_notification_sound', null);
+  const pathInput = document.getElementById('notificationSoundPath');
+  if (pathInput) pathInput.value = '';
+  showToast('Suara notifikasi direset ke default', 'success');
+}
+
+function initSettingsListeners() {
+  const btnPick = document.getElementById('btnPickNotificationSound');
+  const btnTest = document.getElementById('btnTestNotificationSound');
+  const btnReset = document.getElementById('btnResetNotificationSound');
+
+  btnPick?.addEventListener('click', pickNotificationSound);
+  btnTest?.addEventListener('click', testNotificationSound);
+  btnReset?.addEventListener('click', resetNotificationSound);
 }
 
 function initLicenseListeners() {
@@ -1679,17 +1843,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Attach listeners
   initWaWebviewListeners();
   initUpdaterListeners();
+  initSettingsListeners();
   initLicenseListeners();
   await checkLicenseStatus();
   
   refreshAboutTab();
   refreshUpdateTab();
 
-  // Load webview state
-  try {
-    await loadWaWebviewState();
-  } catch (err) {
-    console.error('Error loading webview state:', err);
+  // Load chat webview state only for active premium users.
+  // The chat tab will initialize it later after a valid license is activated.
+  if (isLicenseActive) {
+    try {
+      await loadWaWebviewState();
+    } catch (err) {
+      console.error('Error loading webview state:', err);
+    }
   }
 
   await refreshAccounts(true);
