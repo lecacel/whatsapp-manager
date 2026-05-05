@@ -17,6 +17,7 @@ let activeWaWebviewId = null;
 let waWebviewCounter = 0;
 let waWebviewInitialized = false;
 let waPendingFocusTimeouts = {};
+let waIsRenamingTabId = null;
 
 // Chat state
 let chatAccountId = null;
@@ -1000,6 +1001,10 @@ function renderWaWebviewTabs() {
   const tabsContainer = document.getElementById('waWebviewTabs');
   if (!tabsContainer) return;
 
+  // If a rename is in progress, skip re-rendering the tabs list to avoid
+  // destroying the input element and losing focus/partially typed text.
+  if (waIsRenamingTabId) return;
+
   tabsContainer.innerHTML = waWebviewTabs.map((tab, index) => {
     const displayTitle = tab.customTitle || tab.title || `Akun ${index + 1}`;
     const unreadBadge = tab.unreadCount > 0
@@ -1059,6 +1064,8 @@ function commitWaWebviewTabRename(id, value) {
   const tab = waWebviewTabs.find((item) => item.id === id);
   if (!tab) return;
 
+  waIsRenamingTabId = null;
+
   const trimmed = String(value || '').trim().slice(0, 40);
   tab.customTitle = trimmed;
   renderWaWebviewTabs();
@@ -1114,6 +1121,7 @@ function doInlineRename(titleEl, id) {
   const cancel = () => {
     if (committed) return;
     committed = true;
+    waIsRenamingTabId = null;
     renderWaWebviewTabs();
     syncModalInteractionState();
   };
@@ -1135,6 +1143,7 @@ function doInlineRename(titleEl, id) {
   input.addEventListener('blur', commit);
 
   titleEl.replaceWith(input);
+  waIsRenamingTabId = id;
   setWebviewsInteractive(false);
   requestAnimationFrame(() => {
     input.focus({ preventScroll: true });
