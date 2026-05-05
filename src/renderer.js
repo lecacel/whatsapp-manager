@@ -16,6 +16,7 @@ let archivedWaWebviewTabs = [];
 let activeWaWebviewId = null;
 let waWebviewCounter = 0;
 let waWebviewInitialized = false;
+let waPendingFocusTimeouts = {};
 
 // Chat state
 let chatAccountId = null;
@@ -1006,13 +1007,13 @@ function renderWaWebviewTabs() {
       : '';
 
     return `
-      <button class="wa-webview-tab ${tab.id === activeWaWebviewId ? 'active' : ''}" type="button" title="Double click untuk rename tab" onclick="activateWaWebviewTab('${escapeHtml(tab.id)}')" ondblclick="event.stopPropagation(); renameWaWebviewTab('${escapeHtml(tab.id)}')">
+      <div class="wa-webview-tab ${tab.id === activeWaWebviewId ? 'active' : ''}" role="button" tabindex="0" data-tab-id="${escapeHtml(tab.id)}" title="Klik ikon pensil untuk edit nama tab" onclick="activateWaWebviewTab('${escapeHtml(tab.id)}')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activateWaWebviewTab('${escapeHtml(tab.id)}'); }">
         <span class="wa-webview-tab-status ${escapeHtml(tab.status || 'ready')}"></span>
         ${unreadBadge}
         <span class="wa-webview-tab-title">${escapeHtml(displayTitle)}</span>
-        <span class="wa-webview-tab-rename" title="Rename tab" onclick="event.stopPropagation(); renameWaWebviewTab('${escapeHtml(tab.id)}')">✎</span>
-        <span class="wa-webview-tab-close" title="Tutup tab" onclick="event.stopPropagation(); closeWaWebviewTab('${escapeHtml(tab.id)}')">&times;</span>
-      </button>
+        <span class="wa-webview-tab-rename" role="button" tabindex="0" title="Edit nama tab" onclick="event.preventDefault(); event.stopPropagation(); startInlineRenameWaWebviewTab('${escapeHtml(tab.id)}')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); startInlineRenameWaWebviewTab('${escapeHtml(tab.id)}'); }">✎</span>
+        <span class="wa-webview-tab-close" role="button" tabindex="0" title="Tutup tab" onclick="event.preventDefault(); event.stopPropagation(); closeWaWebviewTab('${escapeHtml(tab.id)}')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); closeWaWebviewTab('${escapeHtml(tab.id)}'); }">&times;</span>
+      </div>
     `;
   }).join('');
 
@@ -1024,13 +1025,21 @@ function activateWaWebviewTab(id, shouldSave = true) {
   const selectedTab = waWebviewTabs.find((tab) => tab.id === id);
   if (!selectedTab) return;
 
+  // Clear any pending focus timeout for this tab
+  if (waPendingFocusTimeouts[id]) {
+    clearTimeout(waPendingFocusTimeouts[id]);
+    delete waPendingFocusTimeouts[id];
+  }
+
   activeWaWebviewId = id;
   waWebviewTabs.forEach((tab) => {
     if (tab.webview) {
       if (tab.id === id) {
         tab.webview.classList.add('active');
         tab.webview.style.setProperty('display', 'flex', 'important');
-        setTimeout(() => {
+        // Schedule focus but store the timeout so it can be cancelled
+        waPendingFocusTimeouts[id] = setTimeout(() => {
+          delete waPendingFocusTimeouts[id];
           try { tab.webview.focus(); } catch(e) {}
         }, 100);
       } else {
@@ -1046,24 +1055,104 @@ function activateWaWebviewTab(id, shouldSave = true) {
 }
 window.activateWaWebviewTab = activateWaWebviewTab;
 
-function renameWaWebviewTab(id) {
+function commitWaWebviewTabRename(id, value) {
+  const tab = waWebviewTabs.find((item) => item.id === id);
+  if (!tab) return;
+
+  const trimmed = String(value || '').trim().slice(0, 40);
+  tab.customTitle = trimmed;
+  renderWaWebviewTabs();
+  saveWaWebviewState();
+
+  // Restore webview interactivity after rename
+  syncModalInteractionState();
+
+  if (trimmed) {
+    showToast(`Nama tab diubah menjadi "${trimmed}"`, 'success');
+  } else {
+    showToast('Nama custom tab dihapus', 'info');
+  }
+}
+
+function startInlineRenameWaWebviewTab(id) {
+  const tab = waWebviewTabs.find((item) => item.id === id);
+  if (!tab) return;
+
+  // Cancel any pending webview focus timeout that would steal focus from the input
+  Object.keys(waPendingFocusTimeouts).forEach((key) => {
+    clearTimeout(waPendingFocusTimeouts[key]);
+    delete waPendingFocusTimeouts[key];
+  });
+
+  // Find the tab button in the current DOM using data-tab-id
+  const escapedId = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(id) : String(id).replaceAll('"', '\\"');
+  const tabButton = document.querySelector(`.wa-webview-tab[data-tab-id="${escapedId}"]`);
+  const titleEl = tabButton?.querySelector('.wa-webview-tab-title');
+  if (!tabButton || !titleEl) return;
+
+  doInlineRename(titleEl, id);
+}
+
+function doInlineRename(titleEl, id) {
   const tab = waWebviewTabs.find((item) => item.id === id);
   if (!tab) return;
 
   const currentName = tab.customTitle || tab.title || '';
-  const nextName = prompt('Nama tab WhatsApp:', currentName);
-  if (nextName === null) return;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'wa-webview-tab-title-input';
+  input.value = currentName;
+  input.maxLength = 40;
+  input.setAttribute('aria-label', 'Nama tab WhatsApp');
 
-  const trimmed = nextName.trim().slice(0, 40);
-  tab.customTitle = trimmed;
-  renderWaWebviewTabs();
-  saveWaWebviewState();
+  let committed = false;
+  const commit = () => {
+    if (committed) return;
+    committed = true;
+    commitWaWebviewTabRename(id, input.value);
+  };
+  const cancel = () => {
+    if (committed) return;
+    committed = true;
+    renderWaWebviewTabs();
+    syncModalInteractionState();
+  };
+
+  input.addEventListener('click', (event) => event.stopPropagation());
+  input.addEventListener('mousedown', (event) => event.stopPropagation());
+  input.addEventListener('pointerdown', (event) => event.stopPropagation());
+  input.addEventListener('dblclick', (event) => event.stopPropagation());
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commit();
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      cancel();
+    }
+  });
+  input.addEventListener('blur', commit);
+
+  titleEl.replaceWith(input);
+  setWebviewsInteractive(false);
+  requestAnimationFrame(() => {
+    input.focus({ preventScroll: true });
+    input.select();
+  });
 }
-window.renameWaWebviewTab = renameWaWebviewTab;
+
+window.startInlineRenameWaWebviewTab = startInlineRenameWaWebviewTab;
 
 function closeWaWebviewTab(id) {
   const index = waWebviewTabs.findIndex((tab) => tab.id === id);
   if (index === -1) return;
+
+  // Cancel any pending focus timeout for this tab
+  if (waPendingFocusTimeouts[id]) {
+    clearTimeout(waPendingFocusTimeouts[id]);
+    delete waPendingFocusTimeouts[id];
+  }
 
   const [removed] = waWebviewTabs.splice(index, 1);
   if (removed.webview) removed.webview.remove();

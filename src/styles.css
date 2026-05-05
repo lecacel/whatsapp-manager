@@ -1229,6 +1229,24 @@ select.form-control {
   text-overflow: ellipsis;
 }
 
+.wa-webview-tab-title-input {
+  background: var(--color-canvas);
+  color: var(--color-ink-deep);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--rounded-sm);
+  padding: 2px 6px;
+  font-size: var(--fs-body-sm);
+  font-family: inherit;
+  width: 120px;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.2);
+}
+
+.wa-webview-tab.active .wa-webview-tab-title-input {
+  background: #fff;
+  color: #000;
+}
+
 .wa-webview-tab-unread {
   min-width: 20px;
   height: 20px;

@@ -22,10 +22,13 @@ const store = new Store();
 let mainWindow;
 let tray;
 
-function getAppIcon() {
-  const iconPath = path.join(__dirname, 'assets', 'icon.png');
+function getAppIcon(iconName = 'icon.png') {
+  const iconPath = path.join(__dirname, 'assets', iconName);
   const fileIcon = nativeImage.createFromPath(iconPath);
-  if (!fileIcon.isEmpty()) return fileIcon;
+
+  if (!fileIcon.isEmpty()) {
+    return fileIcon;
+  }
 
   const fallbackSvg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
@@ -34,7 +37,8 @@ function getAppIcon() {
       <circle cx="196" cy="62" r="24" fill="#25D366"/>
     </svg>
   `;
-  return nativeImage.createFromDataURL(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(fallbackSvg)}`);
+  const fallbackIcon = nativeImage.createFromDataURL(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(fallbackSvg)}`);
+  return fallbackIcon.isEmpty() ? nativeImage.createEmpty() : fallbackIcon;
 }
 
 // Import managers
@@ -575,7 +579,14 @@ function isAllowedWhatsAppWebviewUrl(url) {
 
 function createTray() {
   try {
-    const icon = getAppIcon().resize({ width: 16, height: 16 });
+    const trayIcon = getAppIcon('tray-icon.png');
+    const icon = trayIcon.resize({ width: 16, height: 16 });
+    icon.setTemplateImage(false);
+
+    if (icon.isEmpty()) {
+      throw new Error('Tray icon image is empty');
+    }
+
     tray = new Tray(icon);
     const contextMenu = Menu.buildFromTemplate([
       { label: 'WA Manager', enabled: false },
