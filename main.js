@@ -616,6 +616,21 @@ app.on('second-instance', () => {
 });
 
 function configureWebviewSessions() {
+  // Allow permissions for default session
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    const allowedPermissions = ['media', 'camera', 'microphone', 'notifications', 'fullscreen'];
+    if (allowedPermissions.includes(permission)) {
+      callback(true);
+    } else {
+      callback(false);
+    }
+  });
+
+  session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
+    const allowedPermissions = ['media', 'camera', 'microphone', 'notifications', 'fullscreen'];
+    return allowedPermissions.includes(permission);
+  });
+
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     if (details.url.startsWith('https://web.whatsapp.com/')) {
       details.requestHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
@@ -625,6 +640,24 @@ function configureWebviewSessions() {
 
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
+      // Enable media permissions for specific webview partitions
+      const webviewSession = contents.session;
+      if (webviewSession) {
+        webviewSession.setPermissionRequestHandler((webContents, permission, callback) => {
+          const allowedPermissions = ['media', 'camera', 'microphone', 'notifications', 'fullscreen'];
+          if (allowedPermissions.includes(permission)) {
+            callback(true);
+          } else {
+            callback(false);
+          }
+        });
+
+        webviewSession.setPermissionCheckHandler((webContents, permission) => {
+          const allowedPermissions = ['media', 'camera', 'microphone', 'notifications', 'fullscreen'];
+          return allowedPermissions.includes(permission);
+        });
+      }
+
       contents.setWindowOpenHandler(({ url }) => {
         if (isAllowedWhatsAppWebviewUrl(url)) return { action: 'allow' };
         return { action: 'deny' };

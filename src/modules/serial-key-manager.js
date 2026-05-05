@@ -8,7 +8,7 @@ const Store = require('electron-store');
 const store = new Store();
 
 // Secret key for HMAC signing (CHANGE THIS TO YOUR OWN RANDOM SECRET)
-const HMAC_SECRET = 'w4-m@n@ger-s3r14l-k3y-s3cr3t-2026!';
+const HMAC_SECRET = '4pa-C0p0-54pa-D4p4-D!piL1k4laK4ka-159753-@#$';
 
 /**
  * Generate a unique Machine ID based on hardware info.
