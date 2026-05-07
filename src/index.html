@@ -408,23 +408,57 @@
           <!-- AI Config -->
           <div class="card">
             <h3>⚙️ Konfigurasi AI</h3>
+            
             <div class="form-group">
-              <label>Gemini API Key 
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="link-small">(Dapatkan gratis di sini)</a>
-              </label>
-              <input type="password" id="aiApiKey" placeholder="Masukkan API Key Gemini..." class="form-control">
-            </div>
-            <div class="form-group">
-              <label>Model</label>
-              <select id="aiModel" class="form-control">
-                <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended)</option>
-                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+              <label>Provider Utama</label>
+              <select id="aiProvider" class="form-control">
+                <option value="gemini">Gemini</option>
+                <option value="openai">OpenAI Compatible</option>
               </select>
             </div>
-            <div class="form-group">
+
+            <div id="geminiConfigSection" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+              <div class="form-group">
+                <label>Gemini API Key 
+                  <a href="https://aistudio.google.com/app/apikey" target="_blank" class="link-small">(Dapatkan gratis di sini)</a>
+                </label>
+                <input type="password" id="aiApiKey" placeholder="Masukkan API Key Gemini..." class="form-control">
+              </div>
+              <div class="form-group">
+                <label>Gemini Model</label>
+                <select id="aiModel" class="form-control">
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended)</option>
+                  <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                  <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                  <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="openaiConfigSection" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+              <div class="form-group">
+                <label>OpenAI Base URL (Biarkan kosong untuk default OpenAI)</label>
+                <input type="text" id="aiOpenAIBaseUrl" placeholder="https://api.openai.com/v1" class="form-control">
+              </div>
+              <div class="form-group">
+                <label>OpenAI API Key</label>
+                <input type="password" id="aiOpenAIApiKey" placeholder="sk-..." class="form-control">
+              </div>
+              <div class="form-group">
+                <label>OpenAI Model</label>
+                <input type="text" id="aiOpenAIModel" placeholder="gpt-4o-mini" class="form-control">
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-top:15px;">
+              <label class="checkbox-label">
+                <input type="checkbox" id="aiAutoFallback" checked>
+                Auto Fallback (Otomatis ganti ke provider lain jika terjadi Limit/Error)
+              </label>
+            </div>
+
+            <div class="form-group" style="margin-top:15px;">
               <label>System Prompt (Instruksi untuk AI)</label>
               <textarea id="aiSystemPrompt" class="form-control" rows="4" placeholder="Instruksi behavior AI sebagai CS..."></textarea>
             </div>

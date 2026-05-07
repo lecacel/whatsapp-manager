@@ -193,6 +193,24 @@ class WhatsAppManager extends EventEmitter {
         msgData.contactName = '';
       }
 
+      // Auto-download media for voice notes (ptt) and audio messages
+      // so AI manager can process them with Gemini multimodal
+      if (message.hasMedia && (message.type === 'ptt' || message.type === 'audio')) {
+        try {
+          const media = await message.downloadMedia();
+          if (media && media.data) {
+            msgData.mediaData = {
+              data: media.data,         // Base64-encoded audio
+              mimetype: media.mimetype,  // e.g., 'audio/ogg; codecs=opus'
+              filename: media.filename || null
+            };
+            console.log(`[WA ${accountId}] Voice note downloaded from ${msgData.from} (${media.mimetype}, ${Math.round(media.data.length * 0.75 / 1024)}KB)`);
+          }
+        } catch (mediaErr) {
+          console.error(`[WA ${accountId}] Failed to download voice note from ${msgData.from}:`, mediaErr.message || mediaErr);
+        }
+      }
+
       this.emit('message', accountId, msgData);
     });
 

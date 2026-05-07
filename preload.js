@@ -131,7 +131,9 @@ contextBridge.exposeInMainWorld('api', {
   // Notification
   // ============================================================
   notification: {
-    playSound: (filePath) => ipcRenderer.invoke('notification:play-sound', filePath)
+    playSound: (filePath) => ipcRenderer.invoke('notification:play-sound', filePath),
+    flashFrame: () => ipcRenderer.invoke('notification:flash-frame'),
+    clearBadge: () => ipcRenderer.invoke('notification:clear-badge')
   },
 
   // ============================================================

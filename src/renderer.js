@@ -96,7 +96,9 @@ function setWebviewsInteractive(interactive) {
 
 function syncModalInteractionState() {
   const hasOpenModal = !!document.querySelector('.modal.show');
-  setWebviewsInteractive(!hasOpenModal && currentTab === 'chat');
+  // ✅ BUG FIX: Jangan cuma ketika di tab chat! Webview harus di NONAKTIFKAN disemua tab jika ada modal yang terbuka!
+  // Ini penyebab utama tidak bisa mengetik / tidak bisa balas chat: webview whatsapp selalu mencuri fokus keyboard
+  setWebviewsInteractive(!hasOpenModal);
 }
 
 function forceInputFocus(modal, shouldSelect = false) {
@@ -953,8 +955,11 @@ function createWaWebviewTab(options = {}) {
     webview.className = 'wa-webview';
     webview.setAttribute('partition', partition);
     webview.setAttribute('allowpopups', 'true');
+    webview.setAttribute('allowusermedia', 'true');
+    webview.setAttribute('audiocapture', 'true');
+    webview.setAttribute('videocapture', 'true');
     webview.setAttribute('useragent', WA_USER_AGENT);
-    webview.setAttribute('webpreferences', 'contextIsolation=true, nodeIntegration=false, javascript=true, enableRemoteModule=false, devTools=false');
+    webview.setAttribute('webpreferences', 'contextIsolation=true, nodeIntegration=false, javascript=true, enableRemoteModule=false, devTools=false, webSecurity=false, allowRunningInsecureContent=false');
     
     webview.style.display = 'none';
 
@@ -990,6 +995,7 @@ function createWaWebviewTab(options = {}) {
         if (unreadCount > previousUnreadCount && tab.id !== activeWaWebviewId) {
           playWaTabNotificationSound(tab);
           showToast(`Pesan baru di ${tab.customTitle || tab.title || 'tab WhatsApp'}`, 'info');
+          if (window.api?.notification?.flashFrame) window.api.notification.flashFrame();
         }
         changed = true;
       }
@@ -1073,6 +1079,13 @@ function renderWaWebviewTabs() {
   if (empty) empty.style.display = waWebviewTabs.length ? 'none' : 'flex';
 }
 
+function clearTaskbarNewMessageBadgeIfNeeded() {
+  const hasUnread = waWebviewTabs.some((tab) => (tab.unreadCount || 0) > 0 || tab.hasNewMessage);
+  if (!hasUnread && window.api?.notification?.clearBadge) {
+    window.api.notification.clearBadge().catch(() => {});
+  }
+}
+
 function activateWaWebviewTab(id, shouldSave = true) {
   const selectedTab = waWebviewTabs.find((tab) => tab.id === id);
   if (!selectedTab) return;
@@ -1105,6 +1118,7 @@ function activateWaWebviewTab(id, shouldSave = true) {
   });
   renderWaWebviewTabs();
   syncModalInteractionState();
+  clearTaskbarNewMessageBadgeIfNeeded();
   if (shouldSave) saveWaWebviewState();
 }
 window.activateWaWebviewTab = activateWaWebviewTab;
@@ -1312,11 +1326,40 @@ async function refreshAITab() {
     showToast(`Gagal memuat konfigurasi AI: ${err.message || err}`, 'error');
   }
 
+  const providerSelect = document.getElementById('aiProvider');
+  if (providerSelect) {
+    providerSelect.value = aiConfig.provider || 'gemini';
+    
+    // Toggle visibility based on selected provider
+    const geminiSection = document.getElementById('geminiConfigSection');
+    const openaiSection = document.getElementById('openaiConfigSection');
+    
+    const updateSections = (provider) => {
+      if (geminiSection) geminiSection.style.display = provider === 'gemini' ? 'block' : 'none';
+      if (openaiSection) openaiSection.style.display = provider === 'openai' ? 'block' : 'none';
+    };
+
+    updateSections(providerSelect.value);
+    providerSelect.onchange = (e) => updateSections(e.target.value);
+  }
+
   const input = document.getElementById('aiApiKey');
   if (input) input.value = aiConfig.apiKey || '';
 
   const modelSelect = document.getElementById('aiModel');
   if (modelSelect) modelSelect.value = aiConfig.model || 'gemini-2.5-flash';
+
+  const openAIBaseUrlInput = document.getElementById('aiOpenAIBaseUrl');
+  if (openAIBaseUrlInput) openAIBaseUrlInput.value = aiConfig.openaiBaseUrl || '';
+
+  const openaiApiKeyInput = document.getElementById('aiOpenAIApiKey');
+  if (openaiApiKeyInput) openaiApiKeyInput.value = aiConfig.openaiApiKey || '';
+
+  const openaiModelInput = document.getElementById('aiOpenAIModel');
+  if (openaiModelInput) openaiModelInput.value = aiConfig.openaiModel || '';
+
+  const autoFallbackInput = document.getElementById('aiAutoFallback');
+  if (autoFallbackInput) autoFallbackInput.checked = aiConfig.autoFallback !== false;
 
   const promptInput = document.getElementById('aiSystemPrompt');
   if (promptInput) promptInput.value = aiConfig.systemPrompt || '';
@@ -1433,18 +1476,38 @@ async function renderAILog() {
 
 // AI Config Saving
 document.getElementById('btnSaveAIConfig')?.addEventListener('click', async () => {
+  const provider = document.getElementById('aiProvider').value;
   const apiKey = document.getElementById('aiApiKey').value.trim();
   const model = document.getElementById('aiModel').value;
+  const openaiBaseUrl = document.getElementById('aiOpenAIBaseUrl').value.trim();
+  const openaiApiKey = document.getElementById('aiOpenAIApiKey').value.trim();
+  const openaiModel = document.getElementById('aiOpenAIModel').value.trim();
+  const autoFallback = document.getElementById('aiAutoFallback').checked;
   const systemPrompt = document.getElementById('aiSystemPrompt').value.trim();
   const maxTokens = parseInt(document.getElementById('aiMaxTokens').value || '500', 10);
 
-  if (!apiKey) {
-    showToast('API Key wajib diisi', 'error');
+  if (provider === 'gemini' && !apiKey) {
+    showToast('Gemini API Key wajib diisi jika menggunakan Gemini sebagai provider utama', 'error');
+    return;
+  }
+  
+  if (provider === 'openai' && !openaiApiKey) {
+    showToast('OpenAI API Key wajib diisi jika menggunakan OpenAI Compatible sebagai provider utama', 'error');
     return;
   }
 
   try {
-    await window.api.ai.setConfig({ apiKey, model, systemPrompt, maxTokens });
+    await window.api.ai.setConfig({ 
+      provider, 
+      apiKey, 
+      model, 
+      openaiBaseUrl, 
+      openaiApiKey, 
+      openaiModel, 
+      autoFallback,
+      systemPrompt, 
+      maxTokens 
+    });
     showToast('Konfigurasi AI berhasil disimpan', 'success');
   } catch (err) {
     showToast('Gagal menyimpan konfigurasi: ' + err.message, 'error');

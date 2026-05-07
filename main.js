@@ -10,6 +10,18 @@ app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
 app.commandLine.appendSwitch('disable-gpu-program-cache');
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 
+// WebRTC / media support switches
+app.commandLine.appendSwitch('enable-features', 'WebRTC-H264WithOpenH264FFmpeg,PlatformHEVCEncoderSupport,WebRtcHideLocalIpsWithMdns,GetUserMedia,MediaStream');
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+
+// Set App User Model ID as early as possible for Windows taskbar icon
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.wamanager.app');
+}
+
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
   app.quit();
@@ -22,7 +34,15 @@ const store = new Store();
 let mainWindow;
 let tray;
 
-function getAppIcon(iconName = 'icon.png') {
+function getAppIcon(iconName = null) {
+  // On Windows, prefer .ico for taskbar/system-tray; fall back to .png
+  if (!iconName) {
+    const icoPath = path.join(__dirname, 'assets', 'icon.ico');
+    const pngPath = path.join(__dirname, 'assets', 'icon.png');
+    const fs = require('fs');
+    iconName = (process.platform === 'win32' && fs.existsSync(icoPath)) ? 'icon.ico' : 'icon.png';
+  }
+
   const iconPath = path.join(__dirname, 'assets', iconName);
   const fileIcon = nativeImage.createFromPath(iconPath);
 
@@ -32,9 +52,8 @@ function getAppIcon(iconName = 'icon.png') {
 
   const fallbackSvg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-      <rect width="256" height="256" rx="64" fill="#061014"/>
-      <text x="128" y="160" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="112" font-weight="800" fill="#ffffff">W</text>
-      <circle cx="196" cy="62" r="24" fill="#25D366"/>
+      <rect width="256" height="256" rx="64" fill="#FF0000"/>
+      <path d="M128,40A88,88,0,0,0,51.8,172l-11.2,33.5A8,8,0,0,0,50.1,215a7.9,7.9,0,0,0,5.8,2.4,8.3,8.3,0,0,0,2.5-.4l34.4-11A87.9,87.9,0,1,0,128,40Zm43.8,124a5.1,5.1,0,0,1-3.6,1.4,19.3,19.3,0,0,1-9.6-3c-15.6-8.8-28.5-22.1-37.1-38.4a22.2,22.2,0,0,1-2.9-10.2,16.5,16.5,0,0,1,5.2-11.6,4.6,4.6,0,0,1,3.4-1.3h4a4.4,4.4,0,0,1,3.5,1.9l9.3,13a5.5,5.5,0,0,1,.8,4.7,21,21,0,0,1-2.8,4.6l-3.3,4.2c-.6.8-.7,1.4-.4,2a54.3,54.3,0,0,0,13.7,17,49.2,49.2,0,0,0,18.1,10.6,3.6,3.6,0,0,0,2.3-.2l5.1-2.7A18,18,0,0,1,180.2,106a5,5,0,0,1,4.4.4l14.4,8a4.9,4.9,0,0,1,2.4,4.1A28.7,28.7,0,0,1,171.8,164Z" fill="#ffffff"/>
     </svg>
   `;
   const fallbackIcon = nativeImage.createFromDataURL(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(fallbackSvg)}`);
@@ -98,6 +117,21 @@ function createWindow() {
     title: 'WA Manager - WhatsApp Multi Account',
     show: false,
     backgroundColor: '#0f172a'
+  });
+
+  // Inject anti-Electron-detection preload into every webview BEFORE page scripts run.
+  // This is the ONLY reliable way to override navigator.userAgentData before
+  // WhatsApp Web checks it and disables voice/video call features.
+  mainWindow.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+    // Set preload script that runs in the same JS world as WhatsApp's code
+    webPreferences.preload = path.join(__dirname, 'webview-preload.js');
+    // contextIsolation=false is required so the preload can override navigator properties
+    // in the main page world before WhatsApp's feature-detection scripts execute.
+    webPreferences.contextIsolation = false;
+    webPreferences.nodeIntegration = false;
+    webPreferences.nodeIntegrationInSubFrames = false;
+    webPreferences.webSecurity = false;
+    webPreferences.allowRunningInsecureContent = false;
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -462,6 +496,37 @@ ipcMain.handle('store:set', async (event, { key, value }) => {
   return { success: true };
 });
 
+ipcMain.handle('notification:flash-frame', async () => {
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.flashFrame(true);
+      // Set a red dot overlay icon on the taskbar button
+      const badgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+        <circle cx="8" cy="8" r="8" fill="#FF0000"/>
+      </svg>`;
+      const badgeIcon = nativeImage.createFromDataURL(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(badgeSvg)}`);
+      if (!badgeIcon.isEmpty()) {
+        mainWindow.setOverlayIcon(badgeIcon, 'Pesan baru');
+      }
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('notification:clear-badge', async () => {
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.flashFrame(false);
+      mainWindow.setOverlayIcon(null, '');
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.handle('notification:play-sound', async (event, filePath) => {
   try {
     if (!filePath) return { success: false, error: 'No file path provided' };
@@ -608,7 +673,12 @@ ipcMain.handle('app:get-version', async () => {
 
 // App Lifecycle
 app.whenReady().then(() => {
+  app.setAppUserModelId('com.wamanager.app');
   Menu.setApplicationMenu(null);
+  // Also ensure the taskbar icon overlay is cleared on start
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setOverlayIcon(null, '');
+  }
   configureWebviewSessions();
   createWindow();
   createTray();
@@ -623,51 +693,183 @@ app.on('second-instance', () => {
   }
 });
 
-function configureWebviewSessions() {
-  // Allow permissions for default session
-  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-    const allowedPermissions = ['media', 'camera', 'microphone', 'notifications', 'fullscreen'];
-    if (allowedPermissions.includes(permission)) {
-      callback(true);
-    } else {
-      callback(false);
+// Chrome user-agent constant shared across session configurations and webviews
+const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+
+// Anti-detection script injected into WhatsApp Web pages to hide Electron fingerprints.
+// This ensures WhatsApp does not block voice/video calls due to environment detection.
+const WHATSAPP_ANTI_DETECTION_SCRIPT = `
+(function() {
+  'use strict';
+  try {
+    // Delete any Electron-specific globals that may have leaked through
+    ['process', '__electron', 'electron', 'module'].forEach(function(k) {
+      try { if (window[k] !== undefined) { Object.defineProperty(window, k, { get: function() { return undefined; }, configurable: true }); } } catch(e) {}
+    });
+
+    // Fix navigator.userAgentData – remove any "Electron" entry from brands list
+    // so WhatsApp treats this as a standard Chrome browser.
+    if (navigator.userAgentData) {
+      try {
+        var cleanBrands = (navigator.userAgentData.brands || []).filter(function(b) {
+          return !String(b.brand || '').toLowerCase().includes('electron');
+        });
+        var uadPlatform = navigator.userAgentData.platform || 'Windows';
+        var uadMobile = navigator.userAgentData.mobile || false;
+        Object.defineProperty(navigator, 'userAgentData', {
+          value: {
+            brands: cleanBrands,
+            mobile: uadMobile,
+            platform: uadPlatform,
+            getHighEntropyValues: function(hints) {
+              return Promise.resolve({
+                platform: uadPlatform,
+                platformVersion: '15.0.0',
+                architecture: 'x86',
+                bitness: '64',
+                brands: cleanBrands,
+                fullVersionList: cleanBrands.map(function(b) {
+                  return { brand: b.brand, version: b.version + '.0.0.0' };
+                })
+              });
+            },
+            toJSON: function() {
+              return { brands: cleanBrands, mobile: uadMobile, platform: uadPlatform };
+            }
+          },
+          configurable: true,
+          writable: false
+        });
+      } catch(e) {}
     }
+
+    // Ensure WebRTC APIs are not blocked by overriding common detection patterns
+    if (!window.RTCPeerConnection && window.webkitRTCPeerConnection) {
+      window.RTCPeerConnection = window.webkitRTCPeerConnection;
+    }
+  } catch(e) {}
+})();
+`;
+
+/**
+ * Apply permission handlers and Chrome user-agent to a session.
+ * Called for every session (default + each webview partition).
+ */
+function applySessionConfig(ses) {
+  if (!ses || ses._waConfigured) return;
+  ses._waConfigured = true;
+
+  // Override user-agent so navigator.userAgent reflects Chrome (not Electron).
+  // The webview-preload.js also overrides navigator.userAgentData brands in JS.
+  ses.setUserAgent(CHROME_UA);
+
+  // Grant ALL permissions without prompting – required for voice/video calls.
+  // WhatsApp needs: media, camera, microphone, audioCapture, videoCapture, notifications.
+  ses.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(true);
   });
 
-  session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
-    const allowedPermissions = ['media', 'camera', 'microphone', 'notifications', 'fullscreen'];
-    return allowedPermissions.includes(permission);
+  ses.setPermissionCheckHandler((_webContents, _permission) => {
+    return true;
   });
 
+  // Handle specific device access (camera, microphone)
+  try {
+    if (typeof ses.setDevicePermissionHandler === 'function') {
+      ses.setDevicePermissionHandler((details) => {
+        // Grant access to all requested media devices (camera/mic)
+        return true;
+      });
+    }
+  } catch (_) {}
+
+  // Allow display media (screen sharing) requests inside WhatsApp calls
+  try {
+    if (typeof ses.setDisplayMediaRequestHandler === 'function') {
+      ses.setDisplayMediaRequestHandler((_request, callback) => {
+        callback({}); // Grant without prompting
+      });
+    }
+  } catch (_) {}
+}
+
+function configureWebviewSessions() {
+  // Configure the default session first
+  applySessionConfig(session.defaultSession);
+
+  // Override request headers to ensure Chrome UA is sent to WhatsApp servers
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
-    if (details.url.startsWith('https://web.whatsapp.com/')) {
-      details.requestHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+    if (details.url.includes('whatsapp.com') || details.url.includes('whatsapp.net')) {
+      details.requestHeaders['User-Agent'] = CHROME_UA;
     }
     callback({ requestHeaders: details.requestHeaders });
   });
 
   app.on('web-contents-created', (event, contents) => {
-    if (contents.getType() === 'webview') {
-      // Enable media permissions for specific webview partitions
-      const webviewSession = contents.session;
-      if (webviewSession) {
-        webviewSession.setPermissionRequestHandler((webContents, permission, callback) => {
-          const allowedPermissions = ['media', 'camera', 'microphone', 'notifications', 'fullscreen'];
-          if (allowedPermissions.includes(permission)) {
-            callback(true);
-          } else {
-            callback(false);
+    // Configure every new session (each webview partition gets its own session)
+    const ses = contents.session;
+    if (ses) {
+      applySessionConfig(ses);
+
+      // Also patch request headers on this session for WhatsApp domains
+      try {
+        ses.webRequest.onBeforeSendHeaders((details, callback) => {
+          if (details.url.includes('whatsapp.com') || details.url.includes('whatsapp.net')) {
+            details.requestHeaders['User-Agent'] = CHROME_UA;
           }
+          callback({ requestHeaders: details.requestHeaders });
         });
+      } catch (_e) { /* session may already have a handler */ }
+    }
 
-        webviewSession.setPermissionCheckHandler((webContents, permission) => {
-          const allowedPermissions = ['media', 'camera', 'microphone', 'notifications', 'fullscreen'];
-          return allowedPermissions.includes(permission);
-        });
-      }
+    // Inject anti-detection script into every WhatsApp Web page after DOM is ready.
+    // dom-ready fires before page scripts complete initialization, giving us a chance
+    // to clean up Electron fingerprints before WhatsApp checks the environment.
+    contents.on('dom-ready', () => {
+      try {
+        const url = contents.getURL ? contents.getURL() : '';
+        if (url && (url.includes('whatsapp.com') || url.includes('whatsapp.net'))) {
+          contents.executeJavaScript(WHATSAPP_ANTI_DETECTION_SCRIPT).catch(() => {});
+        }
+      } catch (_e) {}
+    });
 
+    // Also inject on navigation within same page (SPA route changes)
+    contents.on('did-navigate-in-page', () => {
+      try {
+        const url = contents.getURL ? contents.getURL() : '';
+        if (url && (url.includes('whatsapp.com') || url.includes('whatsapp.net'))) {
+          contents.executeJavaScript(WHATSAPP_ANTI_DETECTION_SCRIPT).catch(() => {});
+        }
+      } catch (_e) {}
+    });
+
+    if (contents.getType() === 'webview') {
       contents.setWindowOpenHandler(({ url }) => {
-        if (isAllowedWhatsAppWebviewUrl(url)) return { action: 'allow' };
+        if (isAllowedWhatsAppWebviewUrl(url)) {
+          // Popup call/video windows: reuse the webview's own session so WhatsApp
+          // maintains auth state and media permissions for the call window.
+          return {
+            action: 'allow',
+            overrideBrowserWindowOptions: {
+              width: 960,
+              height: 720,
+              minWidth: 640,
+              minHeight: 480,
+              title: 'WhatsApp Call',
+              autoHideMenuBar: true,
+              webPreferences: {
+                preload: path.join(__dirname, 'webview-preload.js'),
+                contextIsolation: false,
+                nodeIntegration: false,
+                webSecurity: false,
+                allowRunningInsecureContent: false,
+                // Reuse the same session as the opening webview
+                session: contents.session
+              }
+            }
+          };
+        }
         return { action: 'deny' };
       });
 
