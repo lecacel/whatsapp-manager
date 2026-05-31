@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage, session } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage, session, shell } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
 
@@ -119,24 +119,28 @@ function createWindow() {
     backgroundColor: '#0f172a'
   });
 
-  // Inject anti-Electron-detection preload into WhatsApp webviews ONLY.
-  // For browser/general webviews, keep default security settings.
+  // Inject anti-Electron-detection preload into ALL webviews.
   mainWindow.webContents.on('will-attach-webview', (event, webPreferences, params) => {
     const src = params.src || '';
     const partition = params.partition || '';
     const isWhatsAppWebview = src.includes('web.whatsapp.com') || partition.includes('wa-webview');
 
     if (isWhatsAppWebview) {
-      // Set preload script that runs in the same JS world as WhatsApp's code
+      // WhatsApp-specific: need contextIsolation=false to override navigator in same JS world
       webPreferences.preload = path.join(__dirname, 'webview-preload.js');
-      // contextIsolation=false is required so the preload can override navigator properties
-      // in the main page world before WhatsApp's feature-detection scripts execute.
       webPreferences.contextIsolation = false;
+      webPreferences.webSecurity = false;
+    } else {
+      // Browser/general webviews: strip Electron fingerprint
+      // contextIsolation=false required so browser-preload.js can override
+      // navigator.userAgentData in the page's JS context
+      webPreferences.preload = path.join(__dirname, 'browser-preload.js');
+      webPreferences.contextIsolation = false;
+      webPreferences.webSecurity = true;
     }
 
     webPreferences.nodeIntegration = false;
     webPreferences.nodeIntegrationInSubFrames = false;
-    webPreferences.webSecurity = false;
     webPreferences.allowRunningInsecureContent = false;
   });
 
@@ -145,15 +149,17 @@ function createWindow() {
       return { action: 'allow' };
     }
 
+    // For browser popups (sign-in, OAuth, etc.) from main renderer
     return {
       action: 'allow',
       overrideBrowserWindowOptions: {
         webPreferences: {
-          partition: `persist:wa-webview-popup-${Date.now()}`,
-          contextIsolation: true,
+          preload: path.join(__dirname, 'browser-preload.js'),
+          contextIsolation: false,
           nodeIntegration: false,
           webSecurity: true
-        }
+        },
+        autoHideMenuBar: true
       }
     };
   });
@@ -699,8 +705,9 @@ app.on('second-instance', () => {
   }
 });
 
-// Chrome user-agent constant shared across session configurations and webviews
-const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+// Chrome user-agent constant shared across session configurations and webviews.
+// MUST match the version in browser-preload.js CHROME_VER and renderer.js DEFAULT_BROWSER_UA.
+const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
 
 // Anti-detection script injected into WhatsApp Web pages to hide Electron fingerprints.
 // This ensures WhatsApp does not block voice/video calls due to environment detection.
@@ -761,12 +768,16 @@ const WHATSAPP_ANTI_DETECTION_SCRIPT = `
  * Apply permission handlers and Chrome user-agent to a session.
  * Called for every session (default + each webview partition).
  */
-function applySessionConfig(ses) {
+function applySessionConfig(ses, isWhatsApp) {
   if (!ses || ses._waConfigured) return;
   ses._waConfigured = true;
 
-  // Override user-agent so navigator.userAgent reflects Chrome (not Electron).
-  // The webview-preload.js also overrides navigator.userAgentData brands in JS.
+  // Set Chrome user-agent for ALL sessions.
+  // WhatsApp needs it for proper detection.
+  // Browser sessions need it so sub-resource requests (XHR, fetch, CSS, JS)
+  // also use the correct Chrome UA, not the Electron default.
+  // The webview 'useragent' attribute only affects the main frame navigation,
+  // but session.setUserAgent covers ALL requests in that session.
   ses.setUserAgent(CHROME_UA);
 
   // Grant ALL permissions without prompting – required for voice/video calls.
@@ -803,26 +814,33 @@ function configureWebviewSessions() {
   // Configure the default session first
   applySessionConfig(session.defaultSession);
 
-  // Override request headers to ensure Chrome UA is sent to WhatsApp servers
+  // Override request headers to ensure Chrome UA is sent for ALL requests.
+  // This is critical for both WhatsApp and browser sessions.
+  // WhatsApp needs correct UA for proper detection.
+  // Browser (Google, YouTube, etc.) needs correct UA for sub-resource requests
+  // (XHR, fetch, JS, CSS) that may check the UA string.
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
-    if (details.url.includes('whatsapp.com') || details.url.includes('whatsapp.net')) {
-      details.requestHeaders['User-Agent'] = CHROME_UA;
-    }
+    details.requestHeaders['User-Agent'] = CHROME_UA;
     callback({ requestHeaders: details.requestHeaders });
   });
 
   app.on('web-contents-created', (event, contents) => {
     // Configure every new session (each webview partition gets its own session)
     const ses = contents.session;
-    if (ses) {
-      applySessionConfig(ses);
+    // Determine if this session belongs to a browser webview (not WhatsApp)
+    const partition = ses ? (ses.getPartition ? ses.getPartition() : '') : '';
+    const isBrowserSession = partition.includes('browser') || partition.includes('persist:browser');
+    const isWASession = !isBrowserSession;
 
-      // Also patch request headers on this session for WhatsApp domains
+    if (ses) {
+      applySessionConfig(ses, isWASession);
+
+      // Also patch request headers on this session to always use Chrome UA.
+      // This ensures ALL HTTP requests from ANY webview use the correct Chrome UA,
+      // regardless of the domain (WhatsApp, Google, YouTube, etc.)
       try {
         ses.webRequest.onBeforeSendHeaders((details, callback) => {
-          if (details.url.includes('whatsapp.com') || details.url.includes('whatsapp.net')) {
-            details.requestHeaders['User-Agent'] = CHROME_UA;
-          }
+          details.requestHeaders['User-Agent'] = CHROME_UA;
           callback({ requestHeaders: details.requestHeaders });
         });
       } catch (_e) { /* session may already have a handler */ }
@@ -851,11 +869,6 @@ function configureWebviewSessions() {
     });
 
     if (contents.getType() === 'webview') {
-      // Check if this webview belongs to the browser tab (uses 'persist:browser' partition)
-      const isBrowserWebview = contents.session &&
-        contents.session.getStoragePath &&
-        contents.session.getStoragePath().includes('browser');
-
       contents.setWindowOpenHandler(({ url }) => {
         if (isAllowedWhatsAppWebviewUrl(url)) {
           // Popup call/video windows: reuse the webview's own session so WhatsApp
@@ -875,20 +888,63 @@ function configureWebviewSessions() {
                 nodeIntegration: false,
                 webSecurity: false,
                 allowRunningInsecureContent: false,
-                // Reuse the same session as the opening webview
                 session: contents.session
               }
             }
           };
         }
-        // For browser webview, allow popup windows
+
+        // For browser webview — allow Google sign-in / OAuth popups to open
+        // as a new BrowserWindow so the OAuth popup flow works correctly.
+        // The popup communicates back to the opener via postMessage.
+        if (isBrowserSession && url && (url.includes('accounts.google.com') || url.includes('ServiceLogin') || url.includes('oauth.google.com') || url.includes('accounts.youtube.com'))) {
+          return {
+            action: 'allow',
+            overrideBrowserWindowOptions: {
+              width: 600,
+              height: 700,
+              minWidth: 400,
+              minHeight: 500,
+              title: 'Sign In',
+              autoHideMenuBar: true,
+              webPreferences: {
+                preload: path.join(__dirname, 'browser-preload.js'),
+                contextIsolation: false,
+                nodeIntegration: false,
+                webSecurity: false,
+                allowRunningInsecureContent: false,
+                session: contents.session
+              }
+            }
+          };
+        }
+
+        // For browser webview popups — open in a new BrowserWindow.
+        // This is critical for sign-in flows (Google, GitHub, etc.) that
+        // require a proper popup window to complete OAuth.
+        if (isBrowserSession && url && url.startsWith('http')) {
+          return {
+            action: 'allow',
+            overrideBrowserWindowOptions: {
+              width: 600,
+              height: 700,
+              parent: mainWindow,
+              webPreferences: {
+                partition: partition,
+                contextIsolation: false,
+                nodeIntegration: false,
+                webSecurity: false,
+              }
+            }
+          };
+        }
+
         return { action: 'deny' };
       });
 
       contents.on('will-navigate', (e, url) => {
         // Only restrict navigation for WhatsApp webviews, not the internal browser
-        const partition = contents.session?.getPartition?.() || '';
-        if (!partition.includes('browser') && !isAllowedWhatsAppWebviewUrl(url)) {
+        if (isWASession && !isAllowedWhatsAppWebviewUrl(url)) {
           e.preventDefault();
         }
       });

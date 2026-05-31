@@ -10,7 +10,7 @@ let isLicenseActive = false;
 
 // WhatsApp Webview state
 const WA_WEBVIEW_URL = 'https://web.whatsapp.com/';
-const WA_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+const WA_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
 let waWebviewTabs = [];
 let archivedWaWebviewTabs = [];
 let activeWaWebviewId = null;
@@ -1624,10 +1624,23 @@ function createBrowserTab(url = BROWSER_HOME, activate = true) {
 
 function createBrowserWebview(tab, url) {
   const webview = document.createElement('webview');
-  webview.setAttribute('src', url);
+  // Set user agent BEFORE src to ensure it's used for initial page load.
+  // This is critical for YouTube, Google, etc. that check UA during bootstrap.
+  // Version must match CHROME_VER in browser-preload.js and CHROME_UA in main.js.
+  webview.setAttribute('useragent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36');
+  // Load browser-preload.js to delete navigator.webdriver, handle popups, etc.
+  // This MUST be set before src for the preload to run on initial page load.
+  // Path is relative to src/index.html, so ../browser-preload.js points to project root.
+  webview.setAttribute('preload', '../browser-preload.js');
   webview.setAttribute('partition', `persist:browser-tab-${tab.id}`);
-  webview.setAttribute('allowpopups', '');
+  webview.setAttribute('nodeintegration', 'false');
+  // contextIsolation must be false so browser-preload.js can patch navigator in the page JS context.
+  // main.js will-attach-webview handler also enforces this for non-WhatsApp webviews.
+  webview.setAttribute('contextIsolation', 'false');
+  webview.setAttribute('allowpopups', 'true');
   webview.setAttribute('autosize', 'on');
+  // Set src after preload and useragent are configured
+  webview.setAttribute('src', url);
 
   // Webview events
   webview.addEventListener('did-start-loading', () => {
@@ -1683,9 +1696,17 @@ function createBrowserWebview(tab, url) {
     }
   });
 
-  webview.addEventListener('new-window', (e) => {
-    e.preventDefault();
-    createBrowserTab(e.url, true);
+  // NOTE: The deprecated 'new-window' event is intentionally NOT used here.
+  // Popup handling (sign-in, target="_blank") is managed by main process
+  // setWindowOpenHandler which has proper authority and doesn't conflict
+  // with page-level JavaScript event handling.
+
+  // Re-apply user agent on dom-ready to ensure consistency
+  // Version must match CHROME_VER in browser-preload.js and CHROME_UA in main.js
+  webview.addEventListener('dom-ready', () => {
+    try {
+      webview.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36');
+    } catch (_) {}
   });
 
   webview.addEventListener('did-fail-load', (e) => {
