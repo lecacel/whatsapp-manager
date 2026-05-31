@@ -1319,11 +1319,11 @@ let browserIsLoading = false;
 
 function initBrowserListeners() {
   const urlInput = document.getElementById('browserUrlInput');
-  const goBtn = document.getElementById('browserGoBtn');
-  const backBtn = document.getElementById('browserBackBtn');
-  const fwdBtn = document.getElementById('browserFwdBtn');
-  const refreshBtn = document.getElementById('browserRefreshBtn');
-  const homeBtn = document.getElementById('browserHomeBtn');
+  const goBtn = document.getElementById('btnBrowserGo');
+  const backBtn = document.getElementById('btnBrowserBack');
+  const fwdBtn = document.getElementById('btnBrowserForward');
+  const refreshBtn = document.getElementById('btnBrowserReload');
+  const homeBtn = document.getElementById('btnBrowserHome');
 
   urlInput?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -1408,7 +1408,7 @@ function createBrowserWebview(url) {
   const webview = document.createElement('webview');
   webview.setAttribute('partition', 'persist:browser');
   webview.setAttribute('allowpopups', '');
-  webview.setAttribute('preload', '../webview-preload.js');
+  // No WhatsApp-specific preload for the browser webview
   webview.style.width = '100%';
   webview.style.height = '100%';
   webview.style.position = 'absolute';
@@ -1503,8 +1503,8 @@ function updateBrowserUrlBar(url) {
 }
 
 function updateBrowserNavButtons() {
-  const backBtn = document.getElementById('browserBackBtn');
-  const fwdBtn = document.getElementById('browserFwdBtn');
+  const backBtn = document.getElementById('btnBrowserBack');
+  const fwdBtn = document.getElementById('btnBrowserForward');
   if (backBtn) backBtn.disabled = browserHistoryIndex <= 0;
   if (fwdBtn) fwdBtn.disabled = browserHistoryIndex >= browserHistory.length - 1;
 }

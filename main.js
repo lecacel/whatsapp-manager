@@ -845,6 +845,11 @@ function configureWebviewSessions() {
     });
 
     if (contents.getType() === 'webview') {
+      // Check if this webview belongs to the browser tab (uses 'persist:browser' partition)
+      const isBrowserWebview = contents.session &&
+        contents.session.getStoragePath &&
+        contents.session.getStoragePath().includes('browser');
+
       contents.setWindowOpenHandler(({ url }) => {
         if (isAllowedWhatsAppWebviewUrl(url)) {
           // Popup call/video windows: reuse the webview's own session so WhatsApp
@@ -870,11 +875,16 @@ function configureWebviewSessions() {
             }
           };
         }
+        // For browser webview, allow popup windows
         return { action: 'deny' };
       });
 
       contents.on('will-navigate', (e, url) => {
-        if (!isAllowedWhatsAppWebviewUrl(url)) e.preventDefault();
+        // Only restrict navigation for WhatsApp webviews, not the internal browser
+        const partition = contents.session?.getPartition?.() || '';
+        if (!partition.includes('browser') && !isAllowedWhatsAppWebviewUrl(url)) {
+          e.preventDefault();
+        }
       });
     }
   });
