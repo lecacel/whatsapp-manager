@@ -1310,6 +1310,228 @@ function initWaWebviewListeners() {
 }
 
 // ============================================================
+// Browser Tab
+// ============================================================
+let browserWebview = null;
+let browserHistory = [];
+let browserHistoryIndex = -1;
+let browserIsLoading = false;
+
+function initBrowserListeners() {
+  const urlInput = document.getElementById('browserUrlInput');
+  const goBtn = document.getElementById('browserGoBtn');
+  const backBtn = document.getElementById('browserBackBtn');
+  const fwdBtn = document.getElementById('browserFwdBtn');
+  const refreshBtn = document.getElementById('browserRefreshBtn');
+  const homeBtn = document.getElementById('browserHomeBtn');
+
+  urlInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      navigateBrowser(urlInput.value.trim());
+    }
+  });
+
+  goBtn?.addEventListener('click', () => {
+    navigateBrowser(urlInput.value.trim());
+  });
+
+  backBtn?.addEventListener('click', () => {
+    if (browserWebview && browserHistoryIndex > 0) {
+      browserHistoryIndex--;
+      const url = browserHistory[browserHistoryIndex];
+      browserWebview.setAttribute('src', url);
+      updateBrowserUrlBar(url);
+    }
+  });
+
+  fwdBtn?.addEventListener('click', () => {
+    if (browserWebview && browserHistoryIndex < browserHistory.length - 1) {
+      browserHistoryIndex++;
+      const url = browserHistory[browserHistoryIndex];
+      browserWebview.setAttribute('src', url);
+      updateBrowserUrlBar(url);
+    }
+  });
+
+  refreshBtn?.addEventListener('click', () => {
+    if (browserWebview) {
+      try { browserWebview.reload(); } catch (e) {}
+    }
+  });
+
+  homeBtn?.addEventListener('click', () => {
+    showBrowserWelcome();
+  });
+}
+
+function navigateBrowser(rawUrl) {
+  if (!rawUrl) return;
+
+  // Add protocol if missing
+  let url = rawUrl;
+  if (!/^https?:\/\//i.test(url) && !/^about:/.test(url) && !/^file:/.test(url)) {
+    // Check if it looks like a domain
+    if (/^[\w-]+(\.[\w-]+)+/.test(url) || url.includes('.')) {
+      url = 'https://' + url;
+    } else {
+      // Treat as search query
+      url = 'https://www.google.com/search?q=' + encodeURIComponent(rawUrl);
+    }
+  }
+
+  updateBrowserUrlBar(url);
+
+  if (!browserWebview) {
+    createBrowserWebview(url);
+  } else {
+    browserWebview.setAttribute('src', url);
+  }
+
+  // Add to history
+  if (browserHistoryIndex < browserHistory.length - 1) {
+    browserHistory = browserHistory.slice(0, browserHistoryIndex + 1);
+  }
+  browserHistory.push(url);
+  browserHistoryIndex = browserHistory.length - 1;
+  updateBrowserNavButtons();
+}
+
+function createBrowserWebview(url) {
+  const stage = document.getElementById('browserWebviewStage');
+  if (!stage) return;
+
+  // Hide welcome/quick-links
+  const welcome = document.getElementById('browserWelcome');
+  if (welcome) welcome.style.display = 'none';
+
+  const webview = document.createElement('webview');
+  webview.setAttribute('partition', 'persist:browser');
+  webview.setAttribute('allowpopups', '');
+  webview.setAttribute('preload', '../webview-preload.js');
+  webview.style.width = '100%';
+  webview.style.height = '100%';
+  webview.style.position = 'absolute';
+  webview.style.top = '0';
+  webview.style.left = '0';
+  webview.style.border = 'none';
+  webview.setAttribute('src', url);
+
+  const loadingBar = document.getElementById('browserLoadingBar');
+
+  webview.addEventListener('did-start-loading', () => {
+    browserIsLoading = true;
+    if (loadingBar) {
+      loadingBar.style.display = 'block';
+      loadingBar.style.width = '30%';
+    }
+  });
+
+  webview.addEventListener('did-stop-loading', () => {
+    browserIsLoading = false;
+    if (loadingBar) {
+      loadingBar.style.width = '100%';
+      setTimeout(() => {
+        loadingBar.style.display = 'none';
+        loadingBar.style.width = '0%';
+      }, 300);
+    }
+  });
+
+  webview.addEventListener('did-navigate', (e) => {
+    updateBrowserUrlBar(e.url);
+    // Update history for in-page navigation
+    if (browserHistory[browserHistoryIndex] !== e.url) {
+      if (browserHistoryIndex < browserHistory.length - 1) {
+        browserHistory = browserHistory.slice(0, browserHistoryIndex + 1);
+      }
+      browserHistory.push(e.url);
+      browserHistoryIndex = browserHistory.length - 1;
+      updateBrowserNavButtons();
+    }
+  });
+
+  webview.addEventListener('did-navigate-in-page', (e) => {
+    if (e.isMainFrame) {
+      updateBrowserUrlBar(e.url);
+      if (browserHistory[browserHistoryIndex] !== e.url) {
+        if (browserHistoryIndex < browserHistory.length - 1) {
+          browserHistory = browserHistory.slice(0, browserHistoryIndex + 1);
+        }
+        browserHistory.push(e.url);
+        browserHistoryIndex = browserHistory.length - 1;
+        updateBrowserNavButtons();
+      }
+    }
+  });
+
+  webview.addEventListener('page-title-updated', (e) => {
+    const titleEl = document.getElementById('browserTitle');
+    if (titleEl) titleEl.textContent = e.title || 'Browser';
+  });
+
+  webview.addEventListener('new-window', (e) => {
+    e.preventDefault();
+    if (e.url) {
+      navigateBrowser(e.url);
+    }
+  });
+
+  // Progress bar updates
+  webview.addEventListener('did-start-navigation', () => {
+    if (loadingBar) {
+      loadingBar.style.display = 'block';
+      loadingBar.style.width = '60%';
+    }
+  });
+
+  webview.addEventListener('dom-ready', () => {
+    if (loadingBar) {
+      loadingBar.style.width = '90%';
+    }
+  });
+
+  stage.appendChild(webview);
+  browserWebview = webview;
+}
+
+function updateBrowserUrlBar(url) {
+  const urlInput = document.getElementById('browserUrlInput');
+  if (urlInput && url) {
+    urlInput.value = url;
+  }
+}
+
+function updateBrowserNavButtons() {
+  const backBtn = document.getElementById('browserBackBtn');
+  const fwdBtn = document.getElementById('browserFwdBtn');
+  if (backBtn) backBtn.disabled = browserHistoryIndex <= 0;
+  if (fwdBtn) fwdBtn.disabled = browserHistoryIndex >= browserHistory.length - 1;
+}
+
+function showBrowserWelcome() {
+  if (browserWebview) {
+    browserWebview.remove();
+    browserWebview = null;
+  }
+  browserHistory = [];
+  browserHistoryIndex = -1;
+  updateBrowserNavButtons();
+
+  const welcome = document.getElementById('browserWelcome');
+  if (welcome) welcome.style.display = 'flex';
+
+  const urlInput = document.getElementById('browserUrlInput');
+  if (urlInput) urlInput.value = '';
+
+  const titleEl = document.getElementById('browserTitle');
+  if (titleEl) titleEl.textContent = 'Browser';
+}
+
+window.navigateBrowser = navigateBrowser;
+window.showBrowserWelcome = showBrowserWelcome;
+
+// ============================================================
 // AI CS
 // ============================================================
 async function refreshAITab() {
@@ -1918,6 +2140,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Attach listeners
   initWaWebviewListeners();
+  initBrowserListeners();
   initUpdaterListeners();
   initSettingsListeners();
   initLicenseListeners();

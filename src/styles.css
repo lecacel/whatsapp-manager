@@ -1408,8 +1408,121 @@ select.form-control {
   to { transform: rotate(360deg); }
 }
 
-/* ============================================================
-   Responsive (Tablet & Mobile)
+/* ============================================================ */
+/* Browser Tab */
+/* ============================================================ */
+.browser-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.browser-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-base);
+  background: var(--color-canvas);
+  border-bottom: 1px solid var(--color-hairline-soft);
+  flex-shrink: 0;
+}
+
+.browser-nav-buttons {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.browser-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--color-ink);
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: var(--rounded-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast);
+}
+
+.browser-btn:hover:not(:disabled) {
+  background: var(--color-surface-soft);
+}
+
+.browser-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.browser-url-bar {
+  flex: 1;
+  min-width: 0;
+}
+
+.browser-url-bar .form-control {
+  height: 34px;
+  font-size: var(--fs-body-sm);
+}
+
+.browser-go-btn {
+  flex-shrink: 0;
+  height: 34px;
+  padding: 0 16px;
+}
+
+.browser-webview-stage {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--color-surface-soft);
+}
+
+.browser-webview-stage webview {
+  width: 100%;
+  height: 100%;
+  border: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.browser-webview-stage .wa-webview-empty {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.browser-quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-base);
+  justify-content: center;
+}
+
+.browser-quick-links .btn {
+  font-size: var(--fs-body-sm);
+  padding: 8px 16px;
+}
+
+.browser-loading-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background: var(--color-primary);
+  z-index: 10;
+  transition: width 0.3s ease;
+  border-radius: 0 2px 2px 0;
+}
+
+/* ============================================================ */
+/* Responsive (Tablet & Mobile)
    ============================================================ */
 @media (max-width: 1023px) {
   :root {

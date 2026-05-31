@@ -43,6 +43,10 @@
           <span class="nav-icon">🤖</span>
           <span class="nav-label">AI CS</span>
         </button>
+        <button class="nav-item" data-tab="browser">
+          <span class="nav-icon">🌐</span>
+          <span class="nav-label">Browser</span>
+        </button>
         <button class="nav-item" data-tab="settings">
           <span class="nav-icon">⚙️</span>
           <span class="nav-label">Settings</span>
@@ -502,6 +506,40 @@
           </div>
         </div>
       </div>
+      <!-- ============================================================ -->
+      <!-- TAB: Browser -->
+      <!-- ============================================================ -->
+      <div class="tab-content" id="tab-browser">
+        <div class="browser-shell">
+          <div class="browser-toolbar">
+            <div class="browser-nav-buttons">
+              <button class="browser-btn" id="btnBrowserBack" title="Kembali" disabled>◀</button>
+              <button class="browser-btn" id="btnBrowserForward" title="Maju" disabled>▷</button>
+              <button class="browser-btn" id="btnBrowserReload" title="Muat Ulang">⟳</button>
+              <button class="browser-btn" id="btnBrowserHome" title="Beranda">⌂</button>
+            </div>
+            <div class="browser-url-bar">
+              <input type="text" id="browserUrlInput" placeholder="Ketik URL atau cari..." class="form-control" value="https://www.google.com">
+            </div>
+            <button class="btn btn-primary browser-go-btn" id="btnBrowserGo">Go</button>
+          </div>
+          <div class="browser-webview-stage" id="browserWebviewStage">
+            <div class="wa-webview-empty browser-welcome" id="browserWelcome">
+              <span class="empty-icon">🌐</span>
+              <h3>Web Browser</h3>
+              <p>Ketik URL di atas atau tekan <strong>Enter</strong> untuk mulai browsing.</p>
+              <div class="browser-quick-links">
+                <button class="btn btn-secondary" onclick="navigateBrowser('https://www.google.com')">Google</button>
+                <button class="btn btn-secondary" onclick="navigateBrowser('https://www.youtube.com')">YouTube</button>
+                <button class="btn btn-secondary" onclick="navigateBrowser('https://www.facebook.com')">Facebook</button>
+                <button class="btn btn-secondary" onclick="navigateBrowser('https://www.instagram.com')">Instagram</button>
+                <button class="btn btn-secondary" onclick="navigateBrowser('https://www.tiktok.com')">TikTok</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ============================================================ -->
       <!-- TAB: Settings -->
       <!-- ============================================================ -->
