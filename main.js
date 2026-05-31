@@ -119,15 +119,21 @@ function createWindow() {
     backgroundColor: '#0f172a'
   });
 
-  // Inject anti-Electron-detection preload into every webview BEFORE page scripts run.
-  // This is the ONLY reliable way to override navigator.userAgentData before
-  // WhatsApp Web checks it and disables voice/video call features.
+  // Inject anti-Electron-detection preload into WhatsApp webviews ONLY.
+  // For browser/general webviews, keep default security settings.
   mainWindow.webContents.on('will-attach-webview', (event, webPreferences, params) => {
-    // Set preload script that runs in the same JS world as WhatsApp's code
-    webPreferences.preload = path.join(__dirname, 'webview-preload.js');
-    // contextIsolation=false is required so the preload can override navigator properties
-    // in the main page world before WhatsApp's feature-detection scripts execute.
-    webPreferences.contextIsolation = false;
+    const src = params.src || '';
+    const partition = params.partition || '';
+    const isWhatsAppWebview = src.includes('web.whatsapp.com') || partition.includes('wa-webview');
+
+    if (isWhatsAppWebview) {
+      // Set preload script that runs in the same JS world as WhatsApp's code
+      webPreferences.preload = path.join(__dirname, 'webview-preload.js');
+      // contextIsolation=false is required so the preload can override navigator properties
+      // in the main page world before WhatsApp's feature-detection scripts execute.
+      webPreferences.contextIsolation = false;
+    }
+
     webPreferences.nodeIntegration = false;
     webPreferences.nodeIntegrationInSubFrames = false;
     webPreferences.webSecurity = false;

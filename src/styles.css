@@ -310,7 +310,8 @@ body {
 }
 
 /* The chat tab bleeds edge-to-edge */
-#tab-chat.tab-content {
+#tab-chat.tab-content,
+#tab-browser.tab-content {
   padding: 0;
   max-width: none;
   height: 100vh;
@@ -1547,19 +1548,17 @@ select.form-control {
     grid-template-columns: 1fr;
   }
 
-  .sidebar {
+.sidebar {
     display: none; /* Full-screen drawer would be ideal; for now hide to avoid overlap */
   }
 
-  .tab-content {
-    padding: var(--space-base);
-  }
+.tab-content {
+  padding: var(--space-base);
+}
 
-  .content-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-md);
-  }
+.tab-content.active {
+  display: flex;
+}
 
   .form-row {
     grid-template-columns: 1fr;
