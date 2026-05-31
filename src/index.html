@@ -511,7 +511,11 @@
       <!-- ============================================================ -->
       <div class="tab-content" id="tab-browser">
         <div class="browser-shell">
-          <div class="browser-toolbar">
+          <div class="browser-tab-bar" id="browserTabBar">
+            <div class="browser-tabs" id="browserTabs"></div>
+            <button class="browser-add-tab" id="btnAddBrowserTab" type="button" title="Tambah tab browser baru">＋</button>
+          </div>
+          <div class="browser-toolbar" id="browserToolbar">
             <div class="browser-nav-buttons">
               <button class="browser-btn" id="btnBrowserBack" title="Kembali" disabled>◀</button>
               <button class="browser-btn" id="btnBrowserForward" title="Maju" disabled>▷</button>
@@ -523,11 +527,15 @@
             </div>
             <button class="btn btn-primary browser-go-btn" id="btnBrowserGo">Go</button>
           </div>
+          <div class="browser-loading-bar" id="browserLoadingBar"></div>
+          <div class="browser-title-bar">
+            <span id="browserTitle">Browser</span>
+          </div>
           <div class="browser-webview-stage" id="browserWebviewStage">
             <div class="wa-webview-empty browser-welcome" id="browserWelcome">
               <span class="empty-icon">🌐</span>
               <h3>Web Browser</h3>
-              <p>Ketik URL di atas atau tekan <strong>Enter</strong> untuk mulai browsing.</p>
+              <p>Klik tombol <strong>＋</strong> atau ketik URL di atas untuk mulai browsing. Setiap tab memiliki sesi terpisah.</p>
               <div class="browser-quick-links">
                 <button class="btn btn-secondary" onclick="navigateBrowser('https://www.google.com')">Google</button>
                 <button class="btn btn-secondary" onclick="navigateBrowser('https://www.youtube.com')">YouTube</button>
