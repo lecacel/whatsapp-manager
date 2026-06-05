@@ -1,6 +1,6 @@
 {
   "name": "ms-all",
-  "version": "1.0.31",
+  "version": "1.0.33",
   "description": "MS-ALL - WhatsApp Multi-Account Manager Desktop App",
   "main": "main.js",
   "scripts": {
@@ -11,6 +11,9 @@
   "build": {
     "appId": "com.msall.app",
     "productName": "MS-ALL",
+    "npmRebuild": false,
+    "buildDependenciesFromSource": false,
+    "nodeGypRebuild": false,
     "publish": [
       {
         "provider": "github",
@@ -29,7 +32,13 @@
     },
     "files": [
       "**/*",
-      "!node_modules/.cache"
+      "!node_modules/.cache",
+      "!node_modules/bufferutil/build",
+      "!node_modules/utf-8-validate/build"
+    ],
+    "asarUnpack": [
+      "node_modules/telegram/**/*",
+      "node_modules/puppeteer/**/*"
     ]
   },
   "keywords": [
@@ -49,12 +58,16 @@
     "mime-types": "^2.1.35",
     "puppeteer": "^24.42.0",
     "qrcode": "^1.5.3",
-    "telegram": "^2.22.2",
+    "telegram": "^2.26.22",
     "uuid": "^14.0.0",
     "whatsapp-web.js": "^1.23.0"
   },
   "devDependencies": {
     "electron": "^41.5.0",
     "electron-builder": "^26.8.1"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.1.0",
+    "utf-8-validate": "^6.0.6"
   }
 }

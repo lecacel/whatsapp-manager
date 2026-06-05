@@ -1,11 +1,20 @@
 const { EventEmitter } = require('events');
 const Store = require('electron-store');
-const { TelegramClient } = require('telegram');
-const { StringSession } = require('telegram/sessions');
-const { NewMessage } = require('telegram/events');
 const store = new Store();
 const path = require('path');
 const fs = require('fs');
+
+// Telegram imports dengan error handling
+let TelegramClient, StringSession, NewMessage;
+try {
+  const telegram = require('telegram');
+  TelegramClient = telegram.TelegramClient;
+  StringSession = require('telegram/sessions').StringSession;
+  NewMessage = require('telegram/events').NewMessage;
+} catch (err) {
+  console.error('[TelegramManager] Error loading telegram library:', err.message);
+  console.error('[TelegramManager] Make sure to run: npm install telegram@latest');
+}
 
 // Telegram Manager - Native Telegram integration using GramJS
 class TelegramManager extends EventEmitter {
@@ -17,6 +26,12 @@ class TelegramManager extends EventEmitter {
     this.messageHandlers = new Map();
     this.apiId = 94575; // Default Telegram API ID (gunakan milik sendiri di production)
     this.apiHash = 'a3406de8d171bb422bb6ddf3bbd800e2'; // Default API Hash
+    this.isLibraryAvailable = !!(TelegramClient && StringSession && NewMessage);
+    
+    if (!this.isLibraryAvailable) {
+      console.error('[TelegramManager] Telegram library not available. Please install it first.');
+    }
+    
     this.loadSavedAccounts();
   }
 
@@ -55,6 +70,10 @@ class TelegramManager extends EventEmitter {
   }
 
   async addAccount(accountId, name, phone) {
+    if (!this.isLibraryAvailable) {
+      throw new Error('Telegram library is not installed. Please run: npm install telegram@latest');
+    }
+
     if (this.accounts.has(accountId)) {
       throw new Error('Account ID already exists');
     }
@@ -85,6 +104,10 @@ class TelegramManager extends EventEmitter {
     const account = this.accounts.get(accountId);
     if (!account) throw new Error('Account not found');
 
+    if (!this.isLibraryAvailable) {
+      throw new Error('Telegram library is not installed. Please run: npm install telegram@latest');
+    }
+
     try {
       account.status = 'initializing';
       this.emit('status_change', { accountId, status: 'initializing' });
@@ -93,6 +116,8 @@ class TelegramManager extends EventEmitter {
       const stringSession = new StringSession(account.session || '');
       const client = new TelegramClient(stringSession, this.apiId, this.apiHash, {
         connectionRetries: 5,
+        connectionRetryDelay: 5000,
+        useWSS: true,
       });
 
       // Store client
@@ -352,23 +377,32 @@ class TelegramManager extends EventEmitter {
   }
 
   _setupMessageHandler(accountId, client) {
-    client.addEventHandler(async (event) => {
-      try {
-        const message = event.message;
-        if (message && message.message) {
-          this.emit('message', {
-            accountId,
-            chatId: message.chatId,
-            messageId: message.id,
-            text: message.message,
-            from: message.senderId,
-            date: message.date
-          });
+    if (!this.isLibraryAvailable || !NewMessage) {
+      console.error('[TelegramManager] Cannot setup message handler: Library not available');
+      return;
+    }
+
+    try {
+      client.addEventHandler(async (event) => {
+        try {
+          const message = event.message;
+          if (message && message.message) {
+            this.emit('message', {
+              accountId,
+              chatId: message.chatId,
+              messageId: message.id,
+              text: message.message,
+              from: message.senderId,
+              date: message.date
+            });
+          }
+        } catch (err) {
+          console.error(`[Telegram:${accountId}] Message handler error:`, err);
         }
-      } catch (err) {
-        console.error(`[Telegram:${accountId}] Message handler error:`, err);
-      }
-    }, new NewMessage({}));
+      }, new NewMessage({}));
+    } catch (err) {
+      console.error(`[Telegram:${accountId}] Failed to setup message handler:`, err);
+    }
   }
 
   _sleep(ms) {
