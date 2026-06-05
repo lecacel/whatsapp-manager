@@ -1605,9 +1605,8 @@ function createBrowserTab(url = BROWSER_HOME, activate = true) {
 
   browserTabs.push(tab);
 
-  // Hide welcome screen
-  const welcome = document.getElementById('browserWelcome');
-  if (welcome) welcome.style.display = 'none';
+  // Hide welcome screen when tabs exist
+  updateBrowserGreeting();
 
   if (activate) switchBrowserTab(id);
 
@@ -1774,9 +1773,8 @@ function closeBrowserTab(id) {
   if (activeBrowserTabId === id) {
     if (browserTabs.length === 0) {
       activeBrowserTabId = null;
-      // Show welcome screen
-      const welcome = document.getElementById('browserWelcome');
-      if (welcome) welcome.style.display = '';
+      // Show welcome screen when no tabs left
+      updateBrowserGreeting();
       const urlInput = document.getElementById('browserUrlInput');
       if (urlInput) urlInput.value = '';
       const titleEl = document.getElementById('browserTitle');
@@ -1873,14 +1871,14 @@ window.closeBrowserTab = closeBrowserTab;
 window.switchBrowserTab = switchBrowserTab;
 
 function updateBrowserGreeting() {
-  const tab = browserTabs.find(t => t.id === activeBrowserTabId);
   const welcome = document.getElementById('browserWelcome');
   if (!welcome) return;
 
-  if (!tab || !tab.webview) {
-    welcome.style.display = '';
-  } else {
+  // Hide welcome screen if there are any tabs, regardless of webview state
+  if (browserTabs.length > 0) {
     welcome.style.display = 'none';
+  } else {
+    welcome.style.display = '';
   }
 }
 
@@ -1931,7 +1929,7 @@ function initBrowserListeners() {
     updateBrowserTabUI(tab);
     if (urlInput) urlInput.value = '';
     updateBrowserNavButtons();
-    updateBrowserGreeting();
+    // Welcome screen stays hidden as long as tabs exist
   });
 
   if (goBtn) goBtn.addEventListener('click', () => {
