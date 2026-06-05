@@ -1,6 +1,6 @@
 {
   "name": "ms-all",
-  "version": "1.0.30",
+  "version": "1.0.31",
   "description": "MS-ALL - WhatsApp Multi-Account Manager Desktop App",
   "main": "main.js",
   "scripts": {
@@ -49,6 +49,7 @@
     "mime-types": "^2.1.35",
     "puppeteer": "^24.42.0",
     "qrcode": "^1.5.3",
+    "telegram": "^2.22.2",
     "uuid": "^14.0.0",
     "whatsapp-web.js": "^1.23.0"
   },
