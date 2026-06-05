@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-manager",
-  "version": "1.0.26",
+  "version": "1.0.27",
   "description": "WhatsApp Multi-Account Manager Desktop App",
   "main": "main.js",
   "scripts": {
@@ -10,7 +10,7 @@
   },
   "build": {
     "appId": "com.wamanager.app",
-    "productName": "WA Manager",
+    "productName": "MS-ALL",
     "publish": [
       {
         "provider": "github",

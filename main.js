@@ -114,7 +114,7 @@ function createWindow() {
       devTools: false
     },
     icon: getAppIcon(),
-    title: 'WA Manager - WhatsApp Multi Account',
+    title: 'MS-ALL - WhatsApp Multi Account',
     show: false,
     backgroundColor: '#0f172a'
   });
@@ -846,6 +846,16 @@ function configureWebviewSessions() {
       } catch (_e) { /* session may already have a handler */ }
     }
 
+    // Listen for IPC messages from WhatsApp webview to open links in browser tab
+    contents.on('ipc-message', (event, channel, ...args) => {
+      if (channel === 'open-link-in-browser' && args[0]) {
+        const url = args[0];
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('open-link-in-browser-tab', url);
+        }
+      }
+    });
+
     // Inject anti-detection script into every WhatsApp Web page after DOM is ready.
     // dom-ready fires before page scripts complete initialization, giving us a chance
     // to clean up Electron fingerprints before WhatsApp checks the environment.
@@ -976,12 +986,12 @@ function createTray() {
 
     tray = new Tray(icon);
     const contextMenu = Menu.buildFromTemplate([
-      { label: 'WA Manager', enabled: false },
+      { label: 'MS-ALL', enabled: false },
       { type: 'separator' },
       { label: 'Open', click: () => mainWindow.show() },
       { label: 'Quit', click: () => { app.isQuiting = true; app.quit(); } }
     ]);
-    tray.setToolTip('WA Manager');
+    tray.setToolTip('MS-ALL');
     tray.setContextMenu(contextMenu);
     tray.on('double-click', () => mainWindow.show());
   } catch (e) {

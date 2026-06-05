@@ -217,4 +217,44 @@
     }
   } catch (_) {}
 
+  // ── 12. Intercept link clicks to open in browser tab ───────
+  // When user clicks a link in WhatsApp chat, open it in the internal browser
+  // instead of external browser
+  document.addEventListener('click', function(e) {
+    try {
+      // Find the closest anchor tag
+      let target = e.target;
+      while (target && target.tagName !== 'A') {
+        target = target.parentElement;
+      }
+      
+      // If it's a link with href
+      if (target && target.tagName === 'A' && target.href) {
+        const href = target.href;
+        // Only handle http/https links (not tel:, mailto:, etc.)
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          // Send message to main process to open in browser tab
+          // Use a custom event that the main process can listen to
+          if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.postMessage({ type: 'open-browser-tab', url: href });
+          } else {
+            // Fallback: try to communicate via ipc if available
+            try {
+              const { ipcRenderer } = require('electron');
+              ipcRenderer.send('open-link-in-browser', href);
+            } catch (_) {
+              // Last resort: use window.open which will be handled by main process
+              window.open(href, '_blank');
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Link click handler error:', err);
+    }
+  }, true); // Use capture phase to intercept before WhatsApp handlers
+
 })();

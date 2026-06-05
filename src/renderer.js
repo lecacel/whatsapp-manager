@@ -2139,6 +2139,15 @@ function initBrowserListeners() {
   });
 }
 
+// Listen for link opening from WhatsApp webview
+window.api?.wa?.onOpenLinkInBrowser?.((url) => {
+  // Switch to browser tab and open the link
+  switchTab('browser');
+  setTimeout(() => {
+    navigateBrowser(url);
+  }, 100);
+});
+
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('WA Manager Renderer Ready');
   initWaWebviewListeners();

@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('api', {
     onAuthFailure: (callback) => ipcRenderer.on('wa:auth_failure', (_, data) => callback(data)),
     onAuthenticated: (callback) => ipcRenderer.on('wa:authenticated', (_, data) => callback(data)),
     onErrorState: (callback) => ipcRenderer.on('wa:error-state', (_, data) => callback(data)),
+    onOpenLinkInBrowser: (callback) => ipcRenderer.on('open-link-in-browser-tab', (_, url) => callback(url)),
 
     removeListener: (channel) => ipcRenderer.removeAllListeners(channel)
   },
