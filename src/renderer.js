@@ -1813,7 +1813,12 @@ function navigateBrowser(input) {
   if (!tab.webview) {
     createBrowserWebview(tab, url);
   } else {
-    tab.webview.loadURL(url);
+    try {
+      tab.webview.loadURL(url);
+    } catch (err) {
+      console.error('loadURL failed, falling back to src:', err);
+      tab.webview.setAttribute('src', url);
+    }
   }
 
   tab.url = url;
@@ -1936,6 +1941,8 @@ function initBrowserListeners() {
   if (urlInput) {
     urlInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
         navigateBrowser(urlInput.value);
         urlInput.blur();
       }

@@ -25,6 +25,7 @@ class BroadcastManager extends EventEmitter {
    */
   async startBroadcast(params) {
     const {
+      accountIds,
       accountId,
       recipients,
       message,
@@ -34,6 +35,11 @@ class BroadcastManager extends EventEmitter {
       name = 'Broadcast'
     } = params;
 
+    // Support both accountIds (array from renderer) and accountId (single)
+    const resolvedAccountId = Array.isArray(accountIds) && accountIds.length > 0
+      ? accountIds[0]
+      : accountId;
+
     if (!recipients || recipients.length === 0) {
       throw new Error('No recipients provided');
     }
@@ -42,7 +48,7 @@ class BroadcastManager extends EventEmitter {
     const broadcast = {
       id: broadcastId,
       name,
-      accountId,
+      accountId: resolvedAccountId,
       totalRecipients: recipients.length,
       sent: 0,
       failed: 0,

@@ -109,7 +109,15 @@
       var _origQuery = navigator.permissions.query.bind(navigator.permissions);
       navigator.permissions.query = function (desc) {
         if (desc && desc.name === 'notifications') {
-          return Promise.resolve({ state: 'default', onchange: null });
+          return Promise.resolve({
+            state: 'default',
+            status: 'default',
+            name: 'notifications',
+            onchange: null,
+            addEventListener: function () {},
+            removeEventListener: function () {},
+            dispatchEvent: function () { return true; }
+          });
         }
         return _origQuery(desc);
       };

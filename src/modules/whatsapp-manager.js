@@ -376,17 +376,18 @@ class WhatsAppManager extends EventEmitter {
     // Format phone number
     let chatId = to;
     if (!chatId.includes('@')) {
-      // Clean number
+      // Clean number - remove all non-digits
       chatId = to.replace(/\D/g, '');
-      if (!chatId.startsWith('62') && !chatId.startsWith('+')) {
-        if (chatId.startsWith('0')) {
-          chatId = '62' + chatId.substring(1);
-        }
+      // Ensure Indonesian country code (62) is present
+      if (chatId.startsWith('0')) {
+        chatId = '62' + chatId.substring(1);
+      } else if (!chatId.startsWith('62')) {
+        chatId = '62' + chatId;
       }
-      chatId = chatId.replace('+', '') + '@c.us';
+      chatId = chatId + '@c.us';
     }
 
-    await client.sendMessage(chatId, message);
+    return await client.sendMessage(chatId, message);
   }
 
   async sendMessageWithMedia(accountId, to, message, mediaPath) {
@@ -398,8 +399,11 @@ class WhatsAppManager extends EventEmitter {
     let chatId = to;
     if (!chatId.includes('@')) {
       chatId = to.replace(/\D/g, '');
+      // Ensure Indonesian country code (62) is present
       if (chatId.startsWith('0')) {
         chatId = '62' + chatId.substring(1);
+      } else if (!chatId.startsWith('62')) {
+        chatId = '62' + chatId;
       }
       chatId = chatId + '@c.us';
     }
@@ -414,12 +418,12 @@ class WhatsAppManager extends EventEmitter {
         media.mimetype = mime.lookup(mediaPath) || 'application/octet-stream';
       }
 
-      await client.sendMessage(chatId, media, {
+      return await client.sendMessage(chatId, media, {
         caption: message || '',
         sendMediaAsDocument: false
       });
     } else {
-      await client.sendMessage(chatId, message);
+      return await client.sendMessage(chatId, message);
     }
   }
 
