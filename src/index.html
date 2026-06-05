@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data: blob: https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; frame-src https:;">
-  <title>WA Manager - WhatsApp Multi Account</title>
+  <title>MS-ALL - WhatsApp Multi Account</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -13,8 +13,8 @@
     <aside class="sidebar">
       <div class="sidebar-header">
         <div class="logo">
-          <span class="logo-icon">W</span>
-          <span class="logo-text">WA Manager</span>
+          <span class="logo-icon">M</span>
+          <span class="logo-text">MS-ALL</span>
         </div>
       </div>
       <nav class="sidebar-nav">
@@ -220,8 +220,12 @@
             </div>
             <div class="form-group">
               <label>Lampiran File (Opsional)</label>
-              <input type="file" id="broadcastFile" class="form-control" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
-              <div id="broadcastFilePreview" class="file-preview" style="display: none;"></div>
+              <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <button type="button" class="btn btn-secondary" id="btnSelectBroadcastFile">📎 Pilih File</button>
+                <input type="file" id="broadcastFile" class="form-control" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" style="display: none;">
+              </div>
+              <div id="broadcastFilePreview" class="file-preview" style="display: none; margin-top: 8px;"></div>
+              <small class="form-text">Pilih gambar, video, audio, atau dokumen dari komputer Anda</small>
             </div>
             <div class="form-row">
               <div class="form-group">
@@ -385,6 +389,7 @@
                   <option value="exact">Sama persis</option>
                   <option value="startsWith">Dimulai dengan</option>
                   <option value="regex">Regex</option>
+                  <option value="catchAll">Balas semua pesan (CatchAll)</option>
                 </select>
               </div>
               <div class="form-group">
@@ -656,9 +661,9 @@
       <div class="tab-content" id="tab-about">
         <div class="about-container">
           <div class="about-card">
-            <div class="about-logo">W</div>
-            <h1 class="about-title">WA Manager</h1>
-            <p class="about-subtitle">Confident hardware merchandising for your WhatsApp workflows.</p>
+            <div class="about-logo">M</div>
+            <h1 class="about-title">MS-ALL</h1>
+            <p class="about-subtitle">Multi-Account Solutions for ALL your WhatsApp workflows.</p>
             <div class="about-version-badge" id="aboutVersion">v1.0.7</div>
             <div class="about-divider"></div>
             <div class="about-info">

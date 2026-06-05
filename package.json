@@ -1,7 +1,7 @@
 {
-  "name": "whatsapp-manager",
-  "version": "1.0.27",
-  "description": "WhatsApp Multi-Account Manager Desktop App",
+  "name": "ms-all",
+  "version": "1.0.28",
+  "description": "MS-ALL - WhatsApp Multi-Account Manager Desktop App",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -9,7 +9,7 @@
     "dev": "electron . --dev"
   },
   "build": {
-    "appId": "com.wamanager.app",
+    "appId": "com.msall.app",
     "productName": "MS-ALL",
     "publish": [
       {
@@ -21,7 +21,7 @@
     "win": {
       "target": "nsis",
       "icon": "assets/icon.ico",
-      "artifactName": "WA-Manager-Setup-${version}.${ext}"
+      "artifactName": "MS-ALL-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,

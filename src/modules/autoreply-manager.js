@@ -84,6 +84,11 @@ class AutoReplyManager extends EventEmitter {
   }
 
   _matchesKeyword(body, rule) {
+    // CatchAll rule: matches any message
+    if (rule.matchType === 'catchAll' || rule.matchType === 'any') {
+      return true;
+    }
+
     const keywords = Array.isArray(rule.keywords)
       ? rule.keywords
       : [rule.keywords || rule.keyword || ''];

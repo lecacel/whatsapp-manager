@@ -605,13 +605,58 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// File preview handler
+// File selection with dialog API
+let selectedBroadcastFilePath = null;
+
+document.getElementById('btnSelectBroadcastFile')?.addEventListener('click', async () => {
+  try {
+    const result = await window.api.app.selectFile({
+      title: 'Pilih File untuk Broadcast',
+      filters: [
+        { name: 'Media Files', extensions: ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'avi', 'mov', 'mp3', 'wav', 'ogg', 'm4a'] },
+        { name: 'Documents', extensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    
+    if (result && result.filePath) {
+      selectedBroadcastFilePath = result.filePath;
+      const fileName = result.fileName || result.filePath.split(/[\\\/]/).pop();
+      const fileSize = result.fileSize ? (result.fileSize / (1024 * 1024)).toFixed(2) : '?';
+      
+      // Detect file type from extension
+      const ext = fileName.split('.').pop().toLowerCase();
+      const icon = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext) ? '🖼️' : 
+                   ['mp4', 'avi', 'mov', 'mkv', 'webm'].includes(ext) ? '🎥' : 
+                   ['mp3', 'wav', 'ogg', 'm4a', 'flac'].includes(ext) ? '🎵' : '📄';
+      
+      const preview = document.getElementById('broadcastFilePreview');
+      if (preview) {
+        preview.innerHTML = `
+          <div class="file-preview-icon">${icon}</div>
+          <div class="file-preview-info">
+            <div class="file-preview-name">${escapeHtml(fileName)}</div>
+            <div class="file-preview-size">${fileSize} MB</div>
+          </div>
+          <button class="file-preview-remove" onclick="clearBroadcastFile()">✕ Hapus</button>
+        `;
+        preview.style.display = 'flex';
+      }
+      showToast('File dipilih: ' + fileName, 'success');
+    }
+  } catch (err) {
+    showToast('Gagal memilih file: ' + err.message, 'error');
+  }
+});
+
+// Keep legacy file input handler for backward compatibility
 document.getElementById('broadcastFile')?.addEventListener('change', (e) => {
   const file = e.target.files[0];
   const preview = document.getElementById('broadcastFilePreview');
   if (!preview) return;
   
   if (file) {
+    selectedBroadcastFilePath = file.path || null;
     const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
     const icon = file.type.startsWith('image/') ? '🖼️' : 
                  file.type.startsWith('video/') ? '🎥' : 
@@ -653,19 +698,20 @@ document.getElementById('btnStartBroadcast')?.addEventListener('click', async ()
   
   if (!accountIds.length) return showToast('Pilih minimal 1 akun pengirim', 'error');
   if (!recipientsText) return showToast('Masukkan nomor tujuan', 'error');
-  if (!message && !fileInput.files.length) return showToast('Masukkan pesan atau file', 'error');
+  if (!message && !selectedBroadcastFilePath && !fileInput.files.length) {
+    return showToast('Masukkan pesan atau file', 'error');
+  }
   
   const recipients = recipientsText.split('\n').map(n => n.trim()).filter(Boolean);
-  let mediaPath = null;
+  let mediaPath = selectedBroadcastFilePath || null;
   
-  if (fileInput.files.length) {
+  // Fallback to file input if dialog selection not used
+  if (!mediaPath && fileInput.files.length) {
     const file = fileInput.files[0];
-    // In Electron, we need to read the file and send it to main process
-    // file.path is available in Electron but might be empty in some cases
     if (file.path) {
       mediaPath = file.path;
     } else {
-      showToast('File path tidak dapat diakses. Pastikan Anda memilih file dari sistem file lokal.', 'error');
+      showToast('File path tidak dapat diakses. Gunakan tombol Pilih File untuk memilih dari penyimpanan lokal.', 'error');
       return;
     }
   }
@@ -680,6 +726,7 @@ document.getElementById('btnStartBroadcast')?.addEventListener('click', async ()
     // Clear form after successful start
     document.getElementById('broadcastMessage').value = '';
     document.getElementById('broadcastNumbers').value = '';
+    selectedBroadcastFilePath = null;
     clearBroadcastFile();
   } else {
     showToast('Gagal: ' + result.error, 'error');

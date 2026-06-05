@@ -683,6 +683,45 @@ ipcMain.handle('app:get-version', async () => {
   return app.getVersion();
 });
 
+// IPC: select file with dialog
+ipcMain.handle('app:select-file', async (event, options) => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile'],
+      title: options?.title || 'Pilih File',
+      filters: options?.filters || [
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+      return { canceled: true };
+    }
+
+    const filePath = result.filePaths[0];
+    const fs = require('fs');
+    const path = require('path');
+    
+    let fileSize = 0;
+    try {
+      const stats = fs.statSync(filePath);
+      fileSize = stats.size;
+    } catch (err) {
+      console.warn('Could not get file size:', err);
+    }
+
+    return {
+      canceled: false,
+      filePath: filePath,
+      fileName: path.basename(filePath),
+      fileSize: fileSize
+    };
+  } catch (err) {
+    console.error('Error in app:select-file:', err);
+    return { canceled: true, error: err.message };
+  }
+});
+
 // App Lifecycle
 app.whenReady().then(() => {
   app.setAppUserModelId('com.wamanager.app');

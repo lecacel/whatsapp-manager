@@ -142,7 +142,8 @@ contextBridge.exposeInMainWorld('api', {
   // ============================================================
   app: {
     getVersion: () => ipcRenderer.invoke('app:get-version'),
-    focusWindow: () => ipcRenderer.invoke('app:focus-window')
+    focusWindow: () => ipcRenderer.invoke('app:focus-window'),
+    selectFile: (options) => ipcRenderer.invoke('app:select-file', options)
   },
 
   // ============================================================
