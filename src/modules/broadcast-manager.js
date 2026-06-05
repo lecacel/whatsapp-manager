@@ -88,6 +88,7 @@ class BroadcastManager extends EventEmitter {
 
       try {
         if (mediaPath) {
+          console.log(`[Broadcast ${broadcastId}] Sending media to ${recipient}: ${mediaPath}`);
           await this.waManager.sendMessageWithMedia(broadcast.accountId, recipient, message, mediaPath);
         } else {
           await this.waManager.sendMessage(broadcast.accountId, recipient, message);
@@ -111,12 +112,13 @@ class BroadcastManager extends EventEmitter {
         });
 
       } catch (err) {
+        console.error(`[Broadcast ${broadcastId}] Failed to send to ${recipient}:`, err);
         broadcast.failed++;
         broadcast.log.push({
           time: new Date().toISOString(),
           recipient,
           status: 'failed',
-          error: err.message
+          error: err.message || String(err)
         });
 
         this.emit('progress', {
@@ -127,7 +129,7 @@ class BroadcastManager extends EventEmitter {
           failed: broadcast.failed,
           recipient,
           status: 'failed',
-          error: err.message
+          error: err.message || String(err)
         });
       }
 

@@ -410,18 +410,26 @@ class WhatsAppManager extends EventEmitter {
 
     if (mediaPath) {
       if (!fs.existsSync(mediaPath)) {
-        throw new Error('File media tidak ditemukan');
+        throw new Error(`File media tidak ditemukan: ${mediaPath}`);
       }
 
-      const media = MessageMedia.fromFilePath(mediaPath);
-      if (!media.mimetype) {
-        media.mimetype = mime.lookup(mediaPath) || 'application/octet-stream';
-      }
+      try {
+        const media = MessageMedia.fromFilePath(mediaPath);
+        if (!media.mimetype) {
+          media.mimetype = mime.lookup(mediaPath) || 'application/octet-stream';
+        }
+        if (!media.filename) {
+          media.filename = path.basename(mediaPath);
+        }
 
-      return await client.sendMessage(chatId, media, {
-        caption: message || '',
-        sendMediaAsDocument: false
-      });
+        return await client.sendMessage(chatId, media, {
+          caption: message || '',
+          sendMediaAsDocument: false
+        });
+      } catch (mediaErr) {
+        console.error('Error creating MessageMedia:', mediaErr);
+        throw new Error(`Gagal memproses file media: ${mediaErr.message}`);
+      }
     } else {
       return await client.sendMessage(chatId, message);
     }

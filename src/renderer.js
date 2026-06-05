@@ -660,9 +660,12 @@ document.getElementById('btnStartBroadcast')?.addEventListener('click', async ()
   
   if (fileInput.files.length) {
     const file = fileInput.files[0];
-    mediaPath = file.path || null;
-    if (!mediaPath) {
-      showToast('File path tidak dapat diakses. Coba pilih file lagi.', 'error');
+    // In Electron, we need to read the file and send it to main process
+    // file.path is available in Electron but might be empty in some cases
+    if (file.path) {
+      mediaPath = file.path;
+    } else {
+      showToast('File path tidak dapat diakses. Pastikan Anda memilih file dari sistem file lokal.', 'error');
       return;
     }
   }
