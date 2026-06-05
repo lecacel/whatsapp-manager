@@ -504,6 +504,144 @@ function refreshBroadcastTab() {
   loadBroadcastLog();
 }
 
+// WhatsApp Text Formatting Functions
+function wrapSelectedText(textarea, before, after) {
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const selectedText = textarea.value.substring(start, end);
+  const newText = textarea.value.substring(0, start) + before + selectedText + after + textarea.value.substring(end);
+  textarea.value = newText;
+  textarea.focus();
+  textarea.setSelectionRange(start + before.length, end + before.length);
+}
+
+// Emoticon/Emoji data
+const commonEmojis = [
+  '😊', '😂', '❤️', '👍', '🙏', '😍', '😭', '🔥', '✨', '💯',
+  '🎉', '👏', '🤔', '😅', '😎', '🥰', '😘', '🤗', '🙌', '💪',
+  '✅', '❌', '⭐', '💡', '📱', '💰', '🎁', '🏆', '📢', '⚡',
+  '🌟', '💖', '😉', '🤩', '😇', '🙂', '😄', '😃', '😀', '🤝',
+  '👌', '👀', '💼', '📊', '📈', '💵', '🎯', '🚀', '⏰', '📅',
+  '📞', '✉️', '📧', '🌈', '☀️', '🌙', '⭐', '💫', '🎊', '🎈'
+];
+
+let emojiPickerVisible = false;
+
+// Toolbar button handlers
+document.getElementById('btnBoldText')?.addEventListener('click', () => {
+  const textarea = document.getElementById('broadcastMessage');
+  wrapSelectedText(textarea, '*', '*');
+});
+
+document.getElementById('btnItalicText')?.addEventListener('click', () => {
+  const textarea = document.getElementById('broadcastMessage');
+  wrapSelectedText(textarea, '_', '_');
+});
+
+document.getElementById('btnStrikeText')?.addEventListener('click', () => {
+  const textarea = document.getElementById('broadcastMessage');
+  wrapSelectedText(textarea, '~', '~');
+});
+
+document.getElementById('btnMonospaceText')?.addEventListener('click', () => {
+  const textarea = document.getElementById('broadcastMessage');
+  wrapSelectedText(textarea, '```', '```');
+});
+
+document.getElementById('btnQuoteText')?.addEventListener('click', () => {
+  const textarea = document.getElementById('broadcastMessage');
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const selectedText = textarea.value.substring(start, end);
+  const lines = selectedText.split('\n');
+  const quotedLines = lines.map(line => '> ' + line).join('\n');
+  const newText = textarea.value.substring(0, start) + quotedLines + textarea.value.substring(end);
+  textarea.value = newText;
+  textarea.focus();
+});
+
+document.getElementById('btnCodeText')?.addEventListener('click', () => {
+  const textarea = document.getElementById('broadcastMessage');
+  wrapSelectedText(textarea, '`', '`');
+});
+
+document.getElementById('btnEmojiPicker')?.addEventListener('click', () => {
+  const picker = document.getElementById('emojiPicker');
+  if (!picker) return;
+  
+  if (emojiPickerVisible) {
+    picker.style.display = 'none';
+    emojiPickerVisible = false;
+  } else {
+    if (picker.children.length === 0) {
+      commonEmojis.forEach(emoji => {
+        const item = document.createElement('div');
+        item.className = 'emoji-item';
+        item.textContent = emoji;
+        item.onclick = () => {
+          const textarea = document.getElementById('broadcastMessage');
+          const pos = textarea.selectionStart;
+          textarea.value = textarea.value.substring(0, pos) + emoji + textarea.value.substring(pos);
+          textarea.focus();
+          textarea.setSelectionRange(pos + emoji.length, pos + emoji.length);
+        };
+        picker.appendChild(item);
+      });
+    }
+    picker.style.display = 'grid';
+    emojiPickerVisible = true;
+  }
+});
+
+// Close emoji picker when clicking outside
+document.addEventListener('click', (e) => {
+  const picker = document.getElementById('emojiPicker');
+  const btn = document.getElementById('btnEmojiPicker');
+  if (picker && btn && emojiPickerVisible) {
+    if (!picker.contains(e.target) && e.target !== btn) {
+      picker.style.display = 'none';
+      emojiPickerVisible = false;
+    }
+  }
+});
+
+// File preview handler
+document.getElementById('broadcastFile')?.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  const preview = document.getElementById('broadcastFilePreview');
+  if (!preview) return;
+  
+  if (file) {
+    const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+    const icon = file.type.startsWith('image/') ? '🖼️' : 
+                 file.type.startsWith('video/') ? '🎥' : 
+                 file.type.startsWith('audio/') ? '🎵' : '📄';
+    
+    preview.innerHTML = `
+      <div class="file-preview-icon">${icon}</div>
+      <div class="file-preview-info">
+        <div class="file-preview-name">${escapeHtml(file.name)}</div>
+        <div class="file-preview-size">${sizeInMB} MB</div>
+      </div>
+      <button class="file-preview-remove" onclick="clearBroadcastFile()">✕ Hapus</button>
+    `;
+    preview.style.display = 'flex';
+  } else {
+    preview.style.display = 'none';
+    preview.innerHTML = '';
+  }
+});
+
+window.clearBroadcastFile = function() {
+  const fileInput = document.getElementById('broadcastFile');
+  const preview = document.getElementById('broadcastFilePreview');
+  if (fileInput) fileInput.value = '';
+  if (preview) {
+    preview.style.display = 'none';
+    preview.innerHTML = '';
+  }
+};
+
 document.getElementById('btnStartBroadcast')?.addEventListener('click', async () => {
   const accountEls = document.querySelectorAll('input[name="broadcastAccount"]:checked');
   const accountIds = Array.from(accountEls).map(el => el.value);
@@ -512,20 +650,34 @@ document.getElementById('btnStartBroadcast')?.addEventListener('click', async ()
   const fileInput = document.getElementById('broadcastFile');
   const minDelay = parseInt(document.getElementById('broadcastMinDelay').value || '5', 10);
   const maxDelay = parseInt(document.getElementById('broadcastMaxDelay').value || '15', 10);
+  
   if (!accountIds.length) return showToast('Pilih minimal 1 akun pengirim', 'error');
   if (!recipientsText) return showToast('Masukkan nomor tujuan', 'error');
   if (!message && !fileInput.files.length) return showToast('Masukkan pesan atau file', 'error');
+  
   const recipients = recipientsText.split('\n').map(n => n.trim()).filter(Boolean);
   let mediaPath = null;
+  
   if (fileInput.files.length) {
-    showToast('Gunakan fitur lampiran file di chat manual atau kembangkan path handler.', 'info');
+    const file = fileInput.files[0];
+    mediaPath = file.path || null;
+    if (!mediaPath) {
+      showToast('File path tidak dapat diakses. Coba pilih file lagi.', 'error');
+      return;
+    }
   }
+  
   const result = await window.api.broadcast.start({
     accountIds, recipients, message, mediaPath,
     minDelay: minDelay * 1000, maxDelay: maxDelay * 1000
   });
+  
   if (result.success) {
     showToast('Broadcast dimulai', 'success');
+    // Clear form after successful start
+    document.getElementById('broadcastMessage').value = '';
+    document.getElementById('broadcastNumbers').value = '';
+    clearBroadcastFile();
   } else {
     showToast('Gagal: ' + result.error, 'error');
   }

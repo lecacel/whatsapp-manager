@@ -206,11 +206,22 @@
             </div>
             <div class="form-group">
               <label>Isi Pesan</label>
+              <div class="message-input-toolbar">
+                <button type="button" class="btn-toolbar" id="btnBoldText" title="Bold"><strong>B</strong></button>
+                <button type="button" class="btn-toolbar" id="btnItalicText" title="Italic"><em>I</em></button>
+                <button type="button" class="btn-toolbar" id="btnStrikeText" title="Strikethrough"><s>S</s></button>
+                <button type="button" class="btn-toolbar" id="btnMonospaceText" title="Monospace">```</button>
+                <button type="button" class="btn-toolbar" id="btnQuoteText" title="Quote">""</button>
+                <button type="button" class="btn-toolbar" id="btnCodeText" title="Code">&lt;/&gt;</button>
+                <button type="button" class="btn-toolbar" id="btnEmojiPicker" title="Emoticon">😊</button>
+              </div>
               <textarea id="broadcastMessage" class="form-control" rows="5" placeholder="Halo, ini pesan broadcast..."></textarea>
+              <div id="emojiPicker" class="emoji-picker" style="display: none;"></div>
             </div>
             <div class="form-group">
               <label>Lampiran File (Opsional)</label>
-              <input type="file" id="broadcastFile" class="form-control">
+              <input type="file" id="broadcastFile" class="form-control" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
+              <div id="broadcastFilePreview" class="file-preview" style="display: none;"></div>
             </div>
             <div class="form-row">
               <div class="form-group">

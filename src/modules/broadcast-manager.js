@@ -70,6 +70,9 @@ class BroadcastManager extends EventEmitter {
   }
 
   async _processBroadcast(broadcastId, broadcast, recipients, message, mediaPath, minDelay, maxDelay) {
+    // Add 3 second delay before first message
+    await this._sleep(3000, broadcastId);
+
     for (let i = 0; i < recipients.length; i++) {
       // Check if stopped
       if (!this.activeBroadcasts[broadcastId]?.running) {

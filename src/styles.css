@@ -970,6 +970,113 @@ select.form-control {
   gap: 0;
 }
 
+/* Message Input Toolbar */
+.message-input-toolbar {
+  display: flex;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.btn-toolbar {
+  padding: 6px 12px;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--rounded-md);
+  cursor: pointer;
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+  color: var(--color-ink);
+  transition: all var(--transition-fast);
+}
+
+.btn-toolbar:hover {
+  background: var(--color-hairline-soft);
+  border-color: var(--color-primary);
+}
+
+.btn-toolbar:active {
+  transform: scale(0.95);
+}
+
+/* Emoji Picker */
+.emoji-picker {
+  position: absolute;
+  z-index: 100;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--rounded-lg);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-modal);
+  max-width: 320px;
+  max-height: 280px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: var(--space-xxs);
+  margin-top: var(--space-xs);
+}
+
+.emoji-item {
+  padding: var(--space-xs);
+  font-size: 20px;
+  cursor: pointer;
+  text-align: center;
+  border-radius: var(--rounded-sm);
+  transition: background var(--transition-fast);
+}
+
+.emoji-item:hover {
+  background: var(--color-surface-soft);
+}
+
+/* File Preview */
+.file-preview {
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--rounded-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.file-preview-icon {
+  font-size: 32px;
+}
+
+.file-preview-info {
+  flex: 1;
+}
+
+.file-preview-name {
+  font-weight: 600;
+  color: var(--color-ink-deep);
+  margin-bottom: var(--space-xxs);
+}
+
+.file-preview-size {
+  font-size: var(--fs-body-sm);
+  color: var(--color-charcoal);
+}
+
+.file-preview-remove {
+  padding: var(--space-xs) var(--space-md);
+  background: var(--color-critical);
+  color: var(--color-critical-on);
+  border: none;
+  border-radius: var(--rounded-md);
+  cursor: pointer;
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+  transition: background var(--transition-fast);
+}
+
+.file-preview-remove:hover {
+  background: var(--color-critical-strong);
+}
+
 /* ============================================================
    Update Tab
    ============================================================ */
