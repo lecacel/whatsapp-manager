@@ -26,6 +26,7 @@
         <button class="nav-item" data-tab="chat">
           <span class="nav-icon">💬</span>
           <span class="nav-label">Chat</span>
+          <span class="nav-notification-dot" id="chatNotificationDot" style="display: none;"></span>
         </button>
         <button class="nav-item" data-tab="broadcast">
           <span class="nav-icon">📢</span>
@@ -181,6 +182,7 @@
             </div>
           </div>
         </div>
+
       </div>
 
       <!-- ============================================================ -->
@@ -199,6 +201,16 @@
               <div id="broadcastAccounts" class="account-toggles">
                 <p class="text-muted">Memuat akun...</p>
               </div>
+            </div>
+            <div class="form-group">
+              <label>Grup Pesan</label>
+              <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <select id="broadcastGroupSelect" class="form-control" style="flex: 1;">
+                  <option value="">-- Pilih Grup Pesan --</option>
+                </select>
+                <button type="button" class="btn btn-secondary" id="btnManageGroups">Kelola Grup</button>
+              </div>
+              <small class="form-text">Pilih grup yang sudah dibuat atau kelola grup pesan Anda</small>
             </div>
             <div class="form-group">
               <label>Nomor Tujuan (satu per baris)</label>
@@ -238,6 +250,37 @@
               </div>
             </div>
             <button class="btn btn-primary" id="btnStartBroadcast">🚀 Kirim Sekarang</button>
+          </div>
+
+          <!-- Manage Broadcast Groups Modal -->
+          <div class="modal" id="manageBroadcastGroupsModal">
+            <div class="modal-content" style="max-width: 600px;">
+              <div class="modal-header">
+                <h2>Kelola Grup Pesan Broadcast</h2>
+                <button class="modal-close" onclick="closeModal('manageBroadcastGroupsModal')">&times;</button>
+              </div>
+              <div class="modal-body">
+                <div class="form-group">
+                  <label>Nama Grup</label>
+                  <input type="text" id="broadcastGroupName" class="form-control" placeholder="Contoh: Pelanggan VIP">
+                </div>
+                <div class="form-group">
+                  <label>Nomor-nomor (satu per baris)</label>
+                  <textarea id="broadcastGroupNumbers" class="form-control" rows="6" placeholder="628123456789&#10;089988776655&#10;+6281234567890"></textarea>
+                </div>
+                <button class="btn btn-primary" id="btnSaveBroadcastGroup">💾 Simpan Grup</button>
+
+                <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--color-hairline-soft);">
+                  <h3 style="margin-bottom: 12px;">Grup yang Tersimpan</h3>
+                  <div id="broadcastGroupsList" class="broadcast-groups-list">
+                    <p class="text-muted">Belum ada grup tersimpan</p>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('manageBroadcastGroupsModal')">Tutup</button>
+              </div>
+            </div>
           </div>
 
           <div class="card">

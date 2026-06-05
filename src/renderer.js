@@ -485,7 +485,27 @@ function renderChatList() {
 // ============================================================
 // Broadcast
 // ============================================================
-function refreshBroadcastTab() {
+let broadcastGroups = [];
+
+async function loadBroadcastGroups() {
+  try {
+    const stored = await window.api.store.get('broadcast_groups');
+    broadcastGroups = Array.isArray(stored) ? stored : [];
+  } catch (err) {
+    console.error('Gagal memuat grup broadcast:', err);
+    broadcastGroups = [];
+  }
+}
+
+async function saveBroadcastGroups() {
+  try {
+    await window.api.store.set('broadcast_groups', broadcastGroups);
+  } catch (err) {
+    console.error('Gagal menyimpan grup broadcast:', err);
+  }
+}
+
+async function refreshBroadcastTab() {
   const container = document.getElementById('broadcastAccounts');
   if (!container) return;
   const readyAccounts = currentAccounts.filter((a) => a.status === 'ready');
@@ -501,7 +521,39 @@ function refreshBroadcastTab() {
       </label>
     </div>
   `).join('');
+  await loadBroadcastGroups();
+  renderBroadcastGroupSelect();
   loadBroadcastLog();
+}
+
+function renderBroadcastGroupSelect() {
+  const select = document.getElementById('broadcastGroupSelect');
+  if (!select) return;
+  const currentValue = select.value;
+  select.innerHTML = '<option value="">-- Pilih Grup Pesan --</option>' + 
+    broadcastGroups.map(g => `<option value="${escapeHtml(g.id)}">${escapeHtml(g.name)} (${g.numbers.length} nomor)</option>`).join('');
+  if (currentValue) select.value = currentValue;
+}
+
+function renderBroadcastGroupsList() {
+  const container = document.getElementById('broadcastGroupsList');
+  if (!container) return;
+  if (!broadcastGroups.length) {
+    container.innerHTML = '<p class="text-muted">Belum ada grup tersimpan</p>';
+    return;
+  }
+  container.innerHTML = broadcastGroups.map(g => `
+    <div class="broadcast-group-item">
+      <div class="broadcast-group-info">
+        <div class="broadcast-group-name">${escapeHtml(g.name)}</div>
+        <div class="broadcast-group-count">${g.numbers.length} nomor</div>
+      </div>
+      <div class="broadcast-group-actions">
+        <button class="btn btn-icon" onclick="editBroadcastGroup('${escapeHtml(g.id)}')" title="Edit">✏️</button>
+        <button class="btn btn-icon" onclick="deleteBroadcastGroup('${escapeHtml(g.id)}')" title="Hapus">🗑️</button>
+      </div>
+    </div>
+  `).join('');
 }
 
 // WhatsApp Text Formatting Functions
@@ -743,6 +795,77 @@ async function loadBroadcastLog() {
   }
   container.innerHTML = log.map(l => `<div class="log-entry">${escapeHtml(l.name)}: ${l.status}</div>`).join('');
 }
+
+// Broadcast Group Management
+document.getElementById('btnManageGroups')?.addEventListener('click', () => {
+  renderBroadcastGroupsList();
+  document.getElementById('broadcastGroupName').value = '';
+  document.getElementById('broadcastGroupNumbers').value = '';
+  openModal('manageBroadcastGroupsModal');
+});
+
+document.getElementById('btnSaveBroadcastGroup')?.addEventListener('click', async () => {
+  const name = document.getElementById('broadcastGroupName').value.trim();
+  const numbersText = document.getElementById('broadcastGroupNumbers').value.trim();
+  if (!name) {
+    showToast('Masukkan nama grup', 'error');
+    return;
+  }
+  if (!numbersText) {
+    showToast('Masukkan minimal 1 nomor', 'error');
+    return;
+  }
+  const numbers = numbersText.split('\n').map(n => n.trim()).filter(Boolean);
+  if (!numbers.length) {
+    showToast('Masukkan minimal 1 nomor valid', 'error');
+    return;
+  }
+  const newGroup = {
+    id: `group_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    name,
+    numbers,
+    createdAt: new Date().toISOString()
+  };
+  broadcastGroups.push(newGroup);
+  await saveBroadcastGroups();
+  renderBroadcastGroupsList();
+  renderBroadcastGroupSelect();
+  document.getElementById('broadcastGroupName').value = '';
+  document.getElementById('broadcastGroupNumbers').value = '';
+  showToast(`Grup "${name}" berhasil disimpan dengan ${numbers.length} nomor`, 'success');
+});
+
+document.getElementById('broadcastGroupSelect')?.addEventListener('change', (e) => {
+  const groupId = e.target.value;
+  if (!groupId) return;
+  const group = broadcastGroups.find(g => g.id === groupId);
+  if (!group) return;
+  const textarea = document.getElementById('broadcastNumbers');
+  if (textarea) {
+    textarea.value = group.numbers.join('\n');
+    showToast(`Dimuat ${group.numbers.length} nomor dari grup "${group.name}"`, 'success');
+  }
+});
+
+window.editBroadcastGroup = function(groupId) {
+  const group = broadcastGroups.find(g => g.id === groupId);
+  if (!group) return;
+  document.getElementById('broadcastGroupName').value = group.name;
+  document.getElementById('broadcastGroupNumbers').value = group.numbers.join('\n');
+  deleteBroadcastGroup(groupId);
+  showToast('Edit grup dan simpan kembali', 'info');
+};
+
+window.deleteBroadcastGroup = async function(groupId) {
+  const group = broadcastGroups.find(g => g.id === groupId);
+  if (!group) return;
+  if (!confirm(`Hapus grup "${group.name}"?`)) return;
+  broadcastGroups = broadcastGroups.filter(g => g.id !== groupId);
+  await saveBroadcastGroups();
+  renderBroadcastGroupsList();
+  renderBroadcastGroupSelect();
+  showToast(`Grup "${group.name}" berhasil dihapus`, 'success');
+};
 
 // ============================================================
 // Warmer
@@ -1081,7 +1204,7 @@ function createWaWebviewTab(options = {}) {
         tab.title = cleanTitle;
         changed = true;
       }
-      if (changed) { renderWaWebviewTabs(); saveWaWebviewState(); }
+      if (changed) { renderWaWebviewTabs(); saveWaWebviewState(); updateChatNotificationDot(); }
     });
     stage.appendChild(webview);
     webview.setAttribute('src', WA_WEBVIEW_URL);
@@ -1136,6 +1259,14 @@ function clearTaskbarNewMessageBadgeIfNeeded() {
   }
 }
 
+function updateChatNotificationDot() {
+  const hasUnread = waWebviewTabs.some((tab) => (tab.unreadCount || 0) > 0 || tab.hasNewMessage);
+  const notificationDot = document.getElementById('chatNotificationDot');
+  if (notificationDot) {
+    notificationDot.style.display = hasUnread ? 'block' : 'none';
+  }
+}
+
 function activateWaWebviewTab(id, shouldSave = true) {
   const selectedTab = waWebviewTabs.find((tab) => tab.id === id);
   if (!selectedTab) return;
@@ -1165,6 +1296,7 @@ function activateWaWebviewTab(id, shouldSave = true) {
   renderWaWebviewTabs();
   syncModalInteractionState();
   clearTaskbarNewMessageBadgeIfNeeded();
+  updateChatNotificationDot();
   if (shouldSave) saveWaWebviewState();
 }
 window.activateWaWebviewTab = activateWaWebviewTab;

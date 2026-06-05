@@ -270,6 +270,23 @@ body {
   flex-shrink: 0;
 }
 
+.nav-notification-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--color-critical);
+  border-radius: var(--rounded-circle);
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  flex-shrink: 0;
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
+}
+
 .sidebar-footer {
   padding: var(--space-md) var(--space-xl);
   border-top: 1px solid var(--color-hairline-soft);
@@ -519,7 +536,7 @@ h3 {
 /* ============================================================
    Forms & Inputs
    ============================================================ */
-.form-group {OpenAgentic
+.form-group {
   margin-bottom: var(--space-lg);
 }
 
@@ -1075,6 +1092,53 @@ select.form-control {
 
 .file-preview-remove:hover {
   background: var(--color-critical-strong);
+}
+
+/* ============================================================
+   Broadcast Groups List
+   ============================================================ */
+.broadcast-groups-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.broadcast-group-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-base);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-hairline-soft);
+  border-radius: var(--rounded-lg);
+  gap: var(--space-md);
+}
+
+.broadcast-group-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.broadcast-group-name {
+  font-weight: 700;
+  color: var(--color-ink-deep);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.broadcast-group-count {
+  font-size: var(--fs-body-sm);
+  color: var(--color-charcoal);
+}
+
+.broadcast-group-actions {
+  display: flex;
+  gap: var(--space-xs);
+  flex-shrink: 0;
 }
 
 /* ============================================================
