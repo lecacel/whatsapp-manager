@@ -19,7 +19,7 @@ app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 
 // Set App User Model ID as early as possible for Windows taskbar icon
 if (process.platform === 'win32') {
-  app.setAppUserModelId('com.wamanager.app');
+  app.setAppUserModelId('com.msall.app');
 }
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
@@ -724,7 +724,7 @@ ipcMain.handle('app:select-file', async (event, options) => {
 
 // App Lifecycle
 app.whenReady().then(() => {
-  app.setAppUserModelId('com.wamanager.app');
+  app.setAppUserModelId('com.msall.app');
   Menu.setApplicationMenu(null);
   // Also ensure the taskbar icon overlay is cleared on start
   if (mainWindow && !mainWindow.isDestroyed()) {
