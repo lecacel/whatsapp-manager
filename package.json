@@ -1,6 +1,6 @@
 {
   "name": "ms-all",
-  "version": "1.0.39",
+  "version": "1.0.40",
   "description": "MS-ALL - WhatsApp Multi-Account Manager Desktop App",
   "main": "main.js",
   "scripts": {
@@ -42,7 +42,6 @@
       "!node_modules/utf-8-validate/build"
     ],
     "asarUnpack": [
-      "node_modules/telegram/**/*",
       "node_modules/puppeteer/**/*"
     ]
   },
@@ -63,7 +62,6 @@
     "mime-types": "^2.1.35",
     "puppeteer": "^24.42.0",
     "qrcode": "^1.5.3",
-    "telegram": "^2.26.22",
     "uuid": "^14.0.0",
     "whatsapp-web.js": "^1.23.0"
   },

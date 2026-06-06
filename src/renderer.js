@@ -239,7 +239,6 @@ async function switchTab(tab) {
   if (tab === 'warmer') refreshWarmerTab();
   if (tab === 'autoreply') refreshAutoReplyTab();
   if (tab === 'ai') refreshAITab();
-  if (tab === 'telegram') refreshTelegramTab();
   if (tab === 'settings') refreshSettingsTab();
   if (tab === 'about') refreshAboutTab();
 }
