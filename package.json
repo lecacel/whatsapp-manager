@@ -1,6 +1,6 @@
 {
   "name": "ms-all",
-  "version": "1.0.33",
+  "version": "1.0.34",
   "description": "MS-ALL - WhatsApp Multi-Account Manager Desktop App",
   "main": "main.js",
   "scripts": {

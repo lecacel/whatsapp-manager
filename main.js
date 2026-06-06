@@ -715,6 +715,10 @@ ipcMain.handle('tg:download-media', async (event, { accountId, messageId }) => {
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 
+// Configure GitHub provider to handle draft releases properly
+autoUpdater.allowPrerelease = false;
+autoUpdater.allowDowngrade = false;
+
 function setupAutoUpdater() {
   autoUpdater.on('checking-for-update', () => {
     console.log('[AutoUpdate] Checking for update...');
@@ -761,13 +765,21 @@ function setupAutoUpdater() {
 
   autoUpdater.on('error', (err) => {
     console.error('[AutoUpdate] Error:', err.message);
-    if (mainWindow) mainWindow.webContents.send('update:error', { message: err.message });
+    // Don't send error to renderer if it's a common GitHub API issue
+    if (!err.message.includes('Unable to find latest version') && !err.message.includes('HttpError: 406')) {
+      if (mainWindow) mainWindow.webContents.send('update:error', { message: err.message });
+    } else {
+      console.log('[AutoUpdate] GitHub releases not properly configured. Manual check required.');
+    }
   });
 
-  // Check for updates on startup
-  autoUpdater.checkForUpdates().catch(err => {
-    console.error('[AutoUpdate] Check failed:', err.message);
-  });
+  // Check for updates on startup - wrap in try-catch to prevent startup errors
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch(err => {
+      console.error('[AutoUpdate] Check failed:', err.message);
+      // Silent fail - don't block app startup
+    });
+  }, 5000); // Delay 5 seconds after startup
 }
 
 // IPC: manually trigger update check
