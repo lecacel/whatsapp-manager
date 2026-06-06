@@ -1,12 +1,14 @@
 {
   "name": "ms-all",
-  "version": "1.0.42",
+  "version": "1.0.43",
   "description": "MS-ALL - WhatsApp Multi-Account Manager Desktop App",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win",
-    "dev": "electron . --dev"
+    "dev": "electron . --dev",
+    "postinstall": "node scripts/create-icon.js && node scripts/patch-electron-icon.js",
+    "patch-icon": "node scripts/create-icon.js && node scripts/patch-electron-icon.js"
   },
   "build": {
     "appId": "com.msall.app",

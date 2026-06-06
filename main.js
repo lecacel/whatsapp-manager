@@ -99,13 +99,11 @@ function licenseErrorResponse(err) {
 }
 
 function createWindow() {
-  // Get the icon path - use .ico for Windows for better quality
-  const iconPath = process.platform === 'win32' 
+  // Prefer .ico on Windows for full taskbar/alt-tab icon quality
+  const iconPath = process.platform === 'win32'
     ? path.join(__dirname, 'assets', 'icon.ico')
     : path.join(__dirname, 'assets', 'icon.png');
-  
-  const appIcon = getAppIcon();
-  
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -120,7 +118,7 @@ function createWindow() {
       webviewTag: true,
       devTools: false
     },
-    icon: appIcon,
+    icon: iconPath,
     title: 'MS-ALL - WhatsApp Multi Account',
     show: false,
     backgroundColor: '#0f172a'
@@ -174,6 +172,19 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
 
   mainWindow.once('ready-to-show', () => {
+    // Explicitly set the window icon again after the window is shown.
+    // On Electron v30+, this ensures the taskbar button uses the custom icon
+    // even if the PE resource patch didn't fully propagate.
+    if (process.platform === 'win32') {
+      const iconPath = path.join(__dirname, 'assets', 'icon.ico');
+      const fs = require('fs');
+      if (fs.existsSync(iconPath)) {
+        try {
+          const img = nativeImage.createFromPath(iconPath);
+          if (!img.isEmpty()) mainWindow.setIcon(img);
+        } catch (_) {}
+      }
+    }
     mainWindow.show();
   });
 
@@ -1036,15 +1047,17 @@ function isAllowedWhatsAppWebviewUrl(url) {
 
 function createTray() {
   try {
-    // Use the same icon file as the main window for consistency
-    const trayIconPath = process.platform === 'win32' 
+    // For the system tray, use the PNG (tray-icon.png) which is pre-sized at 32x32.
+    // On Windows the Tray constructor also accepts .ico – use it for best quality.
+    const trayIconPath = process.platform === 'win32'
       ? path.join(__dirname, 'assets', 'icon.ico')
-      : path.join(__dirname, 'assets', 'icon.png');
-    
-    const trayIcon = nativeImage.createFromPath(trayIconPath);
-    const icon = trayIcon.resize({ width: 16, height: 16 });
-    icon.setTemplateImage(false);
+      : path.join(__dirname, 'assets', 'tray-icon.png');
 
+    let icon = nativeImage.createFromPath(trayIconPath);
+    if (icon.isEmpty()) {
+      // Fallback to the PNG tray icon
+      icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray-icon.png'));
+    }
     if (icon.isEmpty()) {
       throw new Error('Tray icon image is empty');
     }
