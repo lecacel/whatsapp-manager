@@ -62,7 +62,6 @@ function getAppIcon(iconName = null) {
 
 // Import managers
 const WhatsAppManager = require('./src/modules/whatsapp-manager');
-const TelegramManager = require('./src/modules/telegram-manager');
 const BroadcastManager = require('./src/modules/broadcast-manager');
 const WarmerManager = require('./src/modules/warmer-manager');
 const AutoReplyManager = require('./src/modules/autoreply-manager');
@@ -71,7 +70,6 @@ const SerialKeyManager = require('./src/modules/serial-key-manager');
 
 // Initialize managers
 const waManager = new WhatsAppManager();
-const tgManager = new TelegramManager();
 const broadcastManager = new BroadcastManager(waManager);
 const warmerManager = new WarmerManager(waManager);
 const autoReplyManager = new AutoReplyManager(waManager);
@@ -106,6 +104,8 @@ function createWindow() {
     ? path.join(__dirname, 'assets', 'icon.ico')
     : path.join(__dirname, 'assets', 'icon.png');
   
+  const appIcon = getAppIcon();
+  
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -120,7 +120,7 @@ function createWindow() {
       webviewTag: true,
       devTools: false
     },
-    icon: iconPath,
+    icon: appIcon,
     title: 'MS-ALL - WhatsApp Multi Account',
     show: false,
     backgroundColor: '#0f172a'
@@ -220,31 +220,6 @@ function setupManagerEvents() {
 
   waManager.on('error_state', (accountId, error) => {
     if (mainWindow) mainWindow.webContents.send('wa:error-state', { accountId, error });
-  });
-
-  // Telegram events
-  tgManager.on('waiting_code', (data) => {
-    if (mainWindow) mainWindow.webContents.send('tg:waiting_code', data);
-  });
-
-  tgManager.on('waiting_password', (data) => {
-    if (mainWindow) mainWindow.webContents.send('tg:waiting_password', data);
-  });
-
-  tgManager.on('ready', (data) => {
-    if (mainWindow) mainWindow.webContents.send('tg:ready', data);
-  });
-
-  tgManager.on('disconnected', (data) => {
-    if (mainWindow) mainWindow.webContents.send('tg:disconnected', data);
-  });
-
-  tgManager.on('auth_failure', (data) => {
-    if (mainWindow) mainWindow.webContents.send('tg:auth_failure', data);
-  });
-
-  tgManager.on('error_state', (data) => {
-    if (mainWindow) mainWindow.webContents.send('tg:error_state', data);
   });
 
   broadcastManager.on('progress', (data) => {
@@ -622,120 +597,6 @@ ipcMain.handle('license:generate-key', async (event, { machineId, durationDays }
     return { success: true, ...result };
   } catch (err) {
     return { success: false, error: err.message };
-  }
-});
-
-// ============================================================
-// Telegram IPC Handlers
-// ============================================================
-ipcMain.handle('tg:add-account', async (event, { accountId, name, phone }) => {
-  try {
-    await tgManager.addAccount(accountId, name, phone);
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-});
-
-ipcMain.handle('tg:send-code', async (event, { accountId, code }) => {
-  try {
-    await tgManager.sendCode(accountId, code);
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-});
-
-ipcMain.handle('tg:send-password', async (event, { accountId, password }) => {
-  try {
-    const account = tgManager.accounts.get(accountId);
-    if (!account) {
-      return { success: false, error: 'Account not found' };
-    }
-    
-    if (account._passwordResolver) {
-      account._passwordResolver(password);
-      delete account._passwordResolver;
-      return { success: true };
-    }
-    
-    return { success: false, error: 'No password request pending' };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-});
-
-ipcMain.handle('tg:remove-account', async (event, { accountId }) => {
-  try {
-    await tgManager.removeAccount(accountId);
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-});
-
-ipcMain.handle('tg:get-accounts', async () => tgManager.getAccounts());
-
-ipcMain.handle('tg:get-status', async (event, { accountId }) => tgManager.getStatus(accountId));
-
-ipcMain.handle('tg:logout', async (event, { accountId }) => {
-  try {
-    await tgManager.logout(accountId);
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-});
-
-ipcMain.handle('tg:send-message', async (event, { accountId, chatId, message, mediaPath }) => {
-  try {
-    requireActiveLicense();
-    if (mediaPath) {
-      await tgManager.sendMessageWithMedia(accountId, chatId, message || '', mediaPath);
-    } else {
-      await tgManager.sendMessage(accountId, chatId, message);
-    }
-    return { success: true };
-  } catch (err) {
-    return err?.code === 'LICENSE_REQUIRED'
-      ? licenseErrorResponse(err)
-      : { success: false, error: err.message };
-  }
-});
-
-ipcMain.handle('tg:get-chats', async (event, { accountId }) => {
-  try {
-    requireActiveLicense();
-    const chats = await tgManager.getChats(accountId);
-    return { success: true, chats };
-  } catch (err) {
-    return err?.code === 'LICENSE_REQUIRED'
-      ? { ...licenseErrorResponse(err), chats: [] }
-      : { success: false, error: err.message, chats: [] };
-  }
-});
-
-ipcMain.handle('tg:get-messages', async (event, { accountId, chatId, limit }) => {
-  try {
-    requireActiveLicense();
-    const messages = await tgManager.getChatMessages(accountId, chatId, limit || 100);
-    return { success: true, messages };
-  } catch (err) {
-    return err?.code === 'LICENSE_REQUIRED'
-      ? { ...licenseErrorResponse(err), messages: [] }
-      : { success: false, error: err.message, messages: [] };
-  }
-});
-
-ipcMain.handle('tg:download-media', async (event, { accountId, messageId }) => {
-  try {
-    requireActiveLicense();
-    const media = await tgManager.downloadMedia(accountId, messageId);
-    return { success: !!media, media };
-  } catch (err) {
-    return err?.code === 'LICENSE_REQUIRED'
-      ? { ...licenseErrorResponse(err), media: null }
-      : { success: false, error: err.message, media: null };
   }
 });
 
