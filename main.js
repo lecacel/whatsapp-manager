@@ -498,7 +498,8 @@ const ALLOWED_STORE_KEYS = [
   'ai_config',
   'auto_reply_rules',
   'enabled_autoreply_accounts',
-  'enabled_ai_accounts'
+  'enabled_ai_accounts',
+  'broadcast_groups'
 ];
 
 ipcMain.handle('store:get', async (event, key) => {

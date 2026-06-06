@@ -3,12 +3,10 @@
 // ============================================================
 
 let currentAccounts = [];
-let currentTgAccounts = [];
 let currentTab = 'accounts';
 let autoReplyRules = [];
 let aiConfig = {};
 let isLicenseActive = false;
-let pendingTgAccountId = null;
 
 // WhatsApp Webview state
 const WA_WEBVIEW_URL = 'https://web.whatsapp.com/';
@@ -1802,19 +1800,44 @@ async function refreshAboutTab() {
   } catch (err) { console.warn('Gagal memuat versi about:', err); }
 }
 
+// Track if an update-available/not-available event fired during current check
+let _updateEventFired = false;
+
 function initUpdaterListeners() {
   const btnCheck = document.getElementById('btnCheckUpdate');
   const btnDownload = document.getElementById('btnDownloadUpdate');
   const btnInstall = document.getElementById('btnInstallRestart');
 
   btnCheck?.addEventListener('click', async () => {
-    if (!window.api?.updater?.checkForUpdate) { setUpdateStatus('Fitur update belum tersedia di aplikasi ini.', 'error'); showToast('Fitur update belum tersedia', 'error'); return; }
+    if (!window.api?.updater?.checkForUpdate) {
+      setUpdateStatus('Fitur update belum tersedia di aplikasi ini.', 'error');
+      showToast('Fitur update belum tersedia', 'error');
+      return;
+    }
     try {
+      _updateEventFired = false;
       setUpdateButtons({ checking: true });
       setUpdateStatus('Sedang mengecek update...', 'checking');
       const result = await window.api.updater.checkForUpdate();
-      if (result?.success === false) { setUpdateButtons(); setUpdateStatus(result.error || 'Gagal mengecek update.', 'error'); showToast(result.error || 'Gagal mengecek update', 'error'); }
-    } catch (err) { setUpdateButtons(); setUpdateStatus(err.message || 'Gagal mengecek update.', 'error'); showToast(`Gagal mengecek update: ${err.message || err}`, 'error'); }
+      if (result?.success === false) {
+        setUpdateButtons();
+        setUpdateStatus(result.error || 'Gagal mengecek update.', 'error');
+        showToast(result.error || 'Gagal mengecek update', 'error');
+      } else {
+        // If no update:available / update:not-available event fired within 3s,
+        // reset the checking state so the button becomes usable again.
+        setTimeout(() => {
+          if (!_updateEventFired) {
+            setUpdateButtons();
+            setUpdateStatus('Selesai dicek. Tidak ada info update.', 'idle');
+          }
+        }, 3000);
+      }
+    } catch (err) {
+      setUpdateButtons();
+      setUpdateStatus(err.message || 'Gagal mengecek update.', 'error');
+      showToast(`Gagal mengecek update: ${err.message || err}`, 'error');
+    }
   });
 
   btnDownload?.addEventListener('click', async () => {
@@ -1835,15 +1858,19 @@ function initUpdaterListeners() {
 
   window.api?.updater?.onChecking?.(() => { setUpdateButtons({ checking: true }); setUpdateStatus('Sedang mengecek update...', 'checking'); });
   window.api?.updater?.onAvailable?.((info) => {
+    _updateEventFired = true;
     const latestVersionEl = document.getElementById('updateLatestVersion');
     if (latestVersionEl && info?.version) latestVersionEl.textContent = `v${info.version}`;
-    setUpdateButtons({ updateAvailable: true }); setUpdateStatus('Update tersedia. Silakan download update.', 'available');
+    setUpdateButtons({ updateAvailable: true });
+    setUpdateStatus('Update tersedia. Silakan download update.', 'available');
     showToast(`Update tersedia${info?.version ? `: v${info.version}` : ''}`, 'success');
   });
   window.api?.updater?.onNotAvailable?.((info) => {
+    _updateEventFired = true;
     const latestVersionEl = document.getElementById('updateLatestVersion');
     if (latestVersionEl && info?.version) latestVersionEl.textContent = `v${info.version}`;
-    setUpdateButtons(); setUpdateStatus('Aplikasi sudah versi terbaru.', 'idle');
+    setUpdateButtons();
+    setUpdateStatus('Aplikasi sudah versi terbaru.', 'idle');
     showToast('Aplikasi sudah versi terbaru', 'success');
   });
   window.api?.updater?.onProgress?.((progress) => {
@@ -2320,361 +2347,6 @@ function initBrowserListeners() {
   });
 }
 
-// ============================================================
-// Telegram Tab
-// ============================================================
-async function refreshTelegramTab() {
-  try {
-    const accounts = await window.api.tg.getAccounts();
-    currentTgAccounts = Array.isArray(accounts) ? accounts : [];
-    updateTelegramBadge();
-    renderTgAccounts();
-    updateTgSendVisibility();
-  } catch (err) {
-    console.error('Gagal memuat akun Telegram:', err);
-    currentTgAccounts = [];
-    updateTelegramBadge();
-    renderTgAccounts();
-    updateTgSendVisibility();
-  }
-}
-
-function updateTelegramBadge() {
-  const readyCount = currentTgAccounts.filter((a) => a.status === 'ready').length;
-  const badge = document.getElementById('telegramBadge');
-  if (badge) badge.textContent = readyCount;
-}
-
-function renderTgAccounts() {
-  const grid = document.getElementById('tgAccountsGrid');
-  if (!grid) return;
-  if (currentTgAccounts.length === 0) {
-    grid.innerHTML = `
-      <div class="empty-state">
-        <span class="empty-icon">✈️</span>
-        <h3>Belum ada akun Telegram</h3>
-        <p>Klik "Tambah Akun Telegram" untuk menambahkan akun baru</p>
-      </div>
-    `;
-    return;
-  }
-  grid.innerHTML = currentTgAccounts.map((acc) => `
-    <div class="account-card">
-      <div class="account-card-header">
-        <span class="account-name">${escapeHtml(acc.name)}</span>
-        <span class="account-status ${escapeHtml(acc.status)}">${statusLabel(acc.status)}</span>
-      </div>
-      <div class="account-info">
-        <p><strong>ID:</strong> ${escapeHtml(acc.id)}</p>
-        ${acc.info ? `
-          <p><strong>Phone:</strong> ${escapeHtml(acc.info.phone || '-')}</p>
-          <p><strong>Username:</strong> ${escapeHtml(acc.info.username || '-')}</p>
-        ` : '<p>Belum terkoneksi</p>'}
-      </div>
-      <div class="account-actions">
-        ${acc.status === 'ready' ? `<button class="btn btn-small btn-secondary" onclick="logoutTgAccount('${escapeHtml(acc.id)}')">🔓 Logout</button>` : ''}
-        <button class="btn btn-small btn-danger" onclick="removeTgAccount('${escapeHtml(acc.id)}')">🗑️ Hapus</button>
-      </div>
-    </div>
-  `).join('');
-}
-
-document.getElementById('btnAddTgAccount')?.addEventListener('click', () => {
-  pendingTgAccountId = null;
-  closeAllModals();
-  document.getElementById('tgAccountName').value = '';
-  document.getElementById('tgAccountId').value = '';
-  document.getElementById('tgPhone').value = '';
-  openModal('addTgAccountModal');
-});
-
-document.getElementById('btnConfirmAddTgAccount')?.addEventListener('click', async () => {
-  const btn = document.getElementById('btnConfirmAddTgAccount');
-  const name = document.getElementById('tgAccountName').value.trim();
-  let accountId = document.getElementById('tgAccountId').value.trim();
-  const phone = document.getElementById('tgPhone').value.trim();
-  
-  if (!name) {
-    showToast('Masukkan nama akun', 'error');
-    return;
-  }
-  if (!phone) {
-    showToast('Masukkan nomor HP', 'error');
-    return;
-  }
-  if (!accountId) {
-    accountId = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-  }
-  
-  btn.disabled = true;
-  pendingTgAccountId = accountId;
-  
-  try {
-    const result = await window.api.tg.addAccount({ accountId, name, phone });
-    if (!result.success) {
-      pendingTgAccountId = null;
-      showToast(`Gagal tambah akun: ${result.error}`, 'error');
-    }
-  } catch (err) {
-    pendingTgAccountId = null;
-    showToast(`Gagal tambah akun: ${err.message || err}`, 'error');
-  } finally {
-    btn.disabled = false;
-  }
-});
-
-document.getElementById('btnConfirmTgOtp')?.addEventListener('click', async () => {
-  const code = document.getElementById('tgOtpCode').value.trim();
-  if (!code || !pendingTgAccountId) return;
-  
-  try {
-    const result = await window.api.tg.sendCode({ accountId: pendingTgAccountId, code });
-    if (result.success) {
-      closeModal('tgOtpModal');
-      showToast('Kode OTP berhasil dikirim', 'success');
-      pendingTgAccountId = null;
-    } else {
-      showToast(`Gagal verifikasi: ${result.error}`, 'error');
-    }
-  } catch (err) {
-    showToast(`Error: ${err.message}`, 'error');
-  }
-});
-
-document.getElementById('btnConfirmTgPassword')?.addEventListener('click', async () => {
-  const password = document.getElementById('tg2faPassword').value.trim();
-  if (!password || !pendingTgAccountId) return;
-  
-  try {
-    const result = await window.api.tg.sendPassword({ accountId: pendingTgAccountId, password });
-    if (result.success) {
-      closeModal('tgPasswordModal');
-      showToast('Password 2FA berhasil diverifikasi', 'success');
-    } else {
-      showToast(`Gagal verifikasi password: ${result.error}`, 'error');
-    }
-  } catch (err) {
-    showToast(`Error: ${err.message}`, 'error');
-  }
-});
-
-window.logoutTgAccount = async function(accountId) {
-  const result = await window.api.tg.logout({ accountId });
-  if (result.success) {
-    showToast('Akun Telegram berhasil logout', 'success');
-    refreshTelegramTab();
-  } else {
-    showToast(`Gagal logout: ${result.error}`, 'error');
-  }
-};
-
-window.removeTgAccount = async function(accountId) {
-  if (!confirm('Yakin ingin menghapus akun Telegram ini?')) return;
-  const result = await window.api.tg.removeAccount({ accountId });
-  if (result.success) {
-    if (pendingTgAccountId === accountId) pendingTgAccountId = null;
-    showToast('Akun Telegram berhasil dihapus', 'success');
-    refreshTelegramTab();
-  } else {
-    showToast(`Gagal hapus akun: ${result.error}`, 'error');
-  }
-};
-
-// Telegram Events
-window.api.tg.onWaitingCode(({ accountId, phone }) => {
-  closeModal('addTgAccountModal');
-  document.getElementById('tgOtpPhone').textContent = phone;
-  document.getElementById('tgOtpCode').value = '';
-  pendingTgAccountId = accountId;
-  openModal('tgOtpModal');
-  refreshTelegramTab();
-});
-
-window.api.tg.onWaitingPassword(({ accountId, phone }) => {
-  closeModal('tgOtpModal');
-  document.getElementById('tg2faPassword').value = '';
-  pendingTgAccountId = accountId;
-  openModal('tgPasswordModal');
-});
-
-window.api.tg.onReady(({ accountId, info }) => {
-  if (pendingTgAccountId === accountId) pendingTgAccountId = null;
-  closeModal('tgOtpModal');
-  showToast(`Akun Telegram "${accountId}" terhubung`, 'success');
-  refreshTelegramTab();
-});
-
-window.api.tg.onDisconnected(({ accountId }) => {
-  if (pendingTgAccountId === accountId) pendingTgAccountId = null;
-  showToast(`Akun Telegram "${accountId}" terputus`, 'warning');
-  refreshTelegramTab();
-});
-
-window.api.tg.onAuthFailure(({ accountId }) => {
-  if (pendingTgAccountId === accountId) pendingTgAccountId = null;
-  closeModal('tgOtpModal');
-  showToast(`Autentikasi Telegram gagal untuk "${accountId}"`, 'error');
-  refreshTelegramTab();
-});
-
-window.api.tg.onErrorState(({ accountId, error }) => {
-  if (pendingTgAccountId === accountId) pendingTgAccountId = null;
-  closeModal('tgOtpModal');
-  showToast(`Akun Telegram "${accountId}" error: ${error || 'gagal terhubung'}`, 'error');
-  refreshTelegramTab();
-});
-
-// ============================================================
-// Telegram Send Message Functions
-// ============================================================
-let tgSelectedFile = null;
-
-function updateTgSendVisibility() {
-  const hasAccounts = currentTgAccounts.filter(a => a.status === 'ready').length > 0;
-  const sendCard = document.getElementById('tgSendMessageCard');
-  const logCard = document.getElementById('tgLogCard');
-  if (sendCard) sendCard.style.display = hasAccounts ? 'block' : 'none';
-  if (logCard) logCard.style.display = hasAccounts ? 'block' : 'none';
-  
-  // Update sender account dropdown
-  const senderSelect = document.getElementById('tgSenderAccount');
-  if (senderSelect && hasAccounts) {
-    const readyAccounts = currentTgAccounts.filter(a => a.status === 'ready');
-    senderSelect.innerHTML = '<option value="">-- Pilih Akun --</option>' +
-      readyAccounts.map(acc => `<option value="${escapeHtml(acc.id)}">${escapeHtml(acc.name)} (${escapeHtml(acc.info?.phone || acc.id)})</option>`).join('');
-  }
-}
-
-function addTgLog(message, type = 'info') {
-  const logContainer = document.getElementById('tgLog');
-  if (!logContainer) return;
-  
-  const emptyState = logContainer.querySelector('.empty-state');
-  if (emptyState) emptyState.remove();
-  
-  const logEntry = document.createElement('div');
-  logEntry.className = `log-entry ${type}`;
-  const timestamp = new Date().toLocaleTimeString('id-ID');
-  logEntry.innerHTML = `<span class="log-time">${timestamp}</span><span class="log-text">${escapeHtml(message)}</span>`;
-  logContainer.insertBefore(logEntry, logContainer.firstChild);
-  
-  // Keep only last 50 logs
-  while (logContainer.children.length > 50) {
-    logContainer.removeChild(logContainer.lastChild);
-  }
-}
-
-document.getElementById('btnSelectTgFile')?.addEventListener('click', () => {
-  document.getElementById('tgFile')?.click();
-});
-
-document.getElementById('tgFile')?.addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  
-  tgSelectedFile = file;
-  const preview = document.getElementById('tgFilePreview');
-  if (preview) {
-    preview.style.display = 'block';
-    preview.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--color-surface-secondary); border-radius: 4px;">
-        <span>📎 ${escapeHtml(file.name)}</span>
-        <span style="color: var(--color-text-secondary); font-size: 0.9em;">(${(file.size / 1024).toFixed(1)} KB)</span>
-        <button type="button" class="btn btn-small btn-danger" onclick="clearTgFile()">✕</button>
-      </div>
-    `;
-  }
-});
-
-window.clearTgFile = function() {
-  tgSelectedFile = null;
-  const fileInput = document.getElementById('tgFile');
-  const preview = document.getElementById('tgFilePreview');
-  if (fileInput) fileInput.value = '';
-  if (preview) {
-    preview.style.display = 'none';
-    preview.innerHTML = '';
-  }
-};
-
-document.getElementById('btnSendTgMessage')?.addEventListener('click', async () => {
-  const accountId = document.getElementById('tgSenderAccount')?.value;
-  const chatId = document.getElementById('tgChatId')?.value.trim();
-  const message = document.getElementById('tgMessage')?.value.trim();
-  
-  if (!accountId) {
-    showToast('Pilih akun pengirim', 'error');
-    return;
-  }
-  
-  if (!chatId) {
-    showToast('Masukkan Chat ID atau username tujuan', 'error');
-    return;
-  }
-  
-  if (!message && !tgSelectedFile) {
-    showToast('Masukkan pesan atau pilih file', 'error');
-    return;
-  }
-  
-  const btn = document.getElementById('btnSendTgMessage');
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = '⏳ Mengirim...';
-  }
-  
-  try {
-    let mediaPath = null;
-    
-    // If file selected, save it temporarily
-    if (tgSelectedFile) {
-      const reader = new FileReader();
-      const fileData = await new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(tgSelectedFile);
-      });
-      
-      // Save file temporarily using IPC
-      const result = await window.api.tg.saveTempFile({
-        fileName: tgSelectedFile.name,
-        fileData: Array.from(new Uint8Array(fileData))
-      });
-      
-      if (result.success) {
-        mediaPath = result.filePath;
-      }
-    }
-    
-    const result = await window.api.tg.sendMessage({
-      accountId,
-      chatId,
-      message,
-      mediaPath
-    });
-    
-    if (result.success) {
-      showToast('Pesan Telegram berhasil dikirim', 'success');
-      addTgLog(`✅ Pesan dikirim ke ${chatId} dari akun ${accountId}`, 'success');
-      
-      // Clear form
-      document.getElementById('tgChatId').value = '';
-      document.getElementById('tgMessage').value = '';
-      clearTgFile();
-    } else {
-      showToast(`Gagal mengirim: ${result.error}`, 'error');
-      addTgLog(`❌ Gagal kirim ke ${chatId}: ${result.error}`, 'error');
-    }
-  } catch (err) {
-    showToast(`Error: ${err.message}`, 'error');
-    addTgLog(`❌ Error: ${err.message}`, 'error');
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = '🚀 Kirim Pesan';
-    }
-  }
-});
 
 // Listen for link opening from WhatsApp webview
 window.api?.wa?.onOpenLinkInBrowser?.((url) => {
