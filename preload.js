@@ -152,6 +152,7 @@ contextBridge.exposeInMainWorld('api', {
   tg: {
     addAccount: (params) => ipcRenderer.invoke('tg:add-account', params),
     sendCode: (params) => ipcRenderer.invoke('tg:send-code', params),
+    sendPassword: (params) => ipcRenderer.invoke('tg:send-password', params),
     removeAccount: (params) => ipcRenderer.invoke('tg:remove-account', params),
     getAccounts: () => ipcRenderer.invoke('tg:get-accounts'),
     getStatus: (params) => ipcRenderer.invoke('tg:get-status', params),
@@ -163,6 +164,7 @@ contextBridge.exposeInMainWorld('api', {
 
     // Events from main process
     onWaitingCode: (callback) => ipcRenderer.on('tg:waiting_code', (_, data) => callback(data)),
+    onWaitingPassword: (callback) => ipcRenderer.on('tg:waiting_password', (_, data) => callback(data)),
     onReady: (callback) => ipcRenderer.on('tg:ready', (_, data) => callback(data)),
     onDisconnected: (callback) => ipcRenderer.on('tg:disconnected', (_, data) => callback(data)),
     onAuthFailure: (callback) => ipcRenderer.on('tg:auth_failure', (_, data) => callback(data)),
