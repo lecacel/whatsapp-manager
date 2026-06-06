@@ -128,7 +128,13 @@ class TelegramManager extends EventEmitter {
         phoneNumber: async () => account.phone,
         password: async () => {
           // Will be asked if 2FA is enabled
-          return '';
+          // Emit event untuk meminta password 2FA dari user
+          this.emit('waiting_password', { accountId, phone: account.phone });
+          
+          // Return promise yang akan di-resolve ketika user input password
+          return new Promise((resolve) => {
+            account._passwordResolver = resolve;
+          });
         },
         phoneCode: async () => {
           // Emit event untuk meminta kode dari user

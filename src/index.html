@@ -630,6 +630,28 @@
           </div>
         </div>
 
+        <!-- Telegram 2FA Password Modal -->
+        <div class="modal" id="tgPasswordModal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2>Masukkan Password 2FA</h2>
+              <button class="modal-close" onclick="closeModal('tgPasswordModal')">&times;</button>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+              <p>Akun Anda memiliki Two-Factor Authentication (2FA) aktif.</p>
+              <p>Masukkan password 2FA Anda untuk melanjutkan.</p>
+              <div class="form-group" style="margin-top: 16px;">
+                <label>Password 2FA</label>
+                <input type="password" id="tg2faPassword" placeholder="Masukkan password 2FA" class="form-control" style="text-align: center;">
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="closeModal('tgPasswordModal')">Batal</button>
+              <button class="btn btn-primary" id="btnConfirmTgPassword">Verifikasi</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Telegram Accounts List -->
         <div class="accounts-grid" id="tgAccountsGrid">
           <div class="empty-state">

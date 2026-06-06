@@ -2442,6 +2442,23 @@ document.getElementById('btnConfirmTgOtp')?.addEventListener('click', async () =
   }
 });
 
+document.getElementById('btnConfirmTgPassword')?.addEventListener('click', async () => {
+  const password = document.getElementById('tg2faPassword').value.trim();
+  if (!password || !pendingTgAccountId) return;
+  
+  try {
+    const result = await window.api.tg.sendPassword({ accountId: pendingTgAccountId, password });
+    if (result.success) {
+      closeModal('tgPasswordModal');
+      showToast('Password 2FA berhasil diverifikasi', 'success');
+    } else {
+      showToast(`Gagal verifikasi password: ${result.error}`, 'error');
+    }
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
+});
+
 window.logoutTgAccount = async function(accountId) {
   const result = await window.api.tg.logout({ accountId });
   if (result.success) {
@@ -2472,6 +2489,13 @@ window.api.tg.onWaitingCode(({ accountId, phone }) => {
   pendingTgAccountId = accountId;
   openModal('tgOtpModal');
   refreshTelegramTab();
+});
+
+window.api.tg.onWaitingPassword(({ accountId, phone }) => {
+  closeModal('tgOtpModal');
+  document.getElementById('tg2faPassword').value = '';
+  pendingTgAccountId = accountId;
+  openModal('tgPasswordModal');
 });
 
 window.api.tg.onReady(({ accountId, info }) => {

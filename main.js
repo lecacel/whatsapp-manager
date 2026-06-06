@@ -222,6 +222,10 @@ function setupManagerEvents() {
     if (mainWindow) mainWindow.webContents.send('tg:waiting_code', data);
   });
 
+  tgManager.on('waiting_password', (data) => {
+    if (mainWindow) mainWindow.webContents.send('tg:waiting_password', data);
+  });
+
   tgManager.on('ready', (data) => {
     if (mainWindow) mainWindow.webContents.send('tg:ready', data);
   });
@@ -632,6 +636,25 @@ ipcMain.handle('tg:send-code', async (event, { accountId, code }) => {
   try {
     await tgManager.sendCode(accountId, code);
     return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('tg:send-password', async (event, { accountId, password }) => {
+  try {
+    const account = tgManager.accounts.get(accountId);
+    if (!account) {
+      return { success: false, error: 'Account not found' };
+    }
+    
+    if (account._passwordResolver) {
+      account._passwordResolver(password);
+      delete account._passwordResolver;
+      return { success: true };
+    }
+    
+    return { success: false, error: 'No password request pending' };
   } catch (err) {
     return { success: false, error: err.message };
   }
