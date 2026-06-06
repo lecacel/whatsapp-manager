@@ -101,6 +101,11 @@ function licenseErrorResponse(err) {
 }
 
 function createWindow() {
+  // Get the icon path - use .ico for Windows for better quality
+  const iconPath = process.platform === 'win32' 
+    ? path.join(__dirname, 'assets', 'icon.ico')
+    : path.join(__dirname, 'assets', 'icon.png');
+  
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -115,7 +120,7 @@ function createWindow() {
       webviewTag: true,
       devTools: false
     },
-    icon: getAppIcon(),
+    icon: iconPath,
     title: 'MS-ALL - WhatsApp Multi Account',
     show: false,
     backgroundColor: '#0f172a'
@@ -1169,7 +1174,12 @@ function isAllowedWhatsAppWebviewUrl(url) {
 
 function createTray() {
   try {
-    const trayIcon = getAppIcon('tray-icon.png');
+    // Use the same icon file as the main window for consistency
+    const trayIconPath = process.platform === 'win32' 
+      ? path.join(__dirname, 'assets', 'icon.ico')
+      : path.join(__dirname, 'assets', 'icon.png');
+    
+    const trayIcon = nativeImage.createFromPath(trayIconPath);
     const icon = trayIcon.resize({ width: 16, height: 16 });
     icon.setTemplateImage(false);
 
